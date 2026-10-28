@@ -1,0 +1,45 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "KGI API（Swagger）",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "建置 KGI API",
+      "program": "${workspaceFolder}/Kgi.Api/bin/Debug/net10.0/Kgi.Api.dll",
+      "cwd": "${workspaceFolder}/Kgi.Api",
+      "launchSettingsFilePath": "${workspaceFolder}/Kgi.Api/Properties/launchSettings.json",
+      "launchSettingsProfile": "http",
+      "console": "internalConsole",
+      "checkForDevCert": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s/swagger"
+      }
+    },
+    {
+      "name": "KGI 前端",
+      "type": "pwa-node",
+      "request": "launch",
+      "preLaunchTask": "安裝 KGI 前端套件",
+      "program": "${workspaceFolder}/Kgi.Web/node_modules/vite/bin/vite.js",
+      "cwd": "${workspaceFolder}/Kgi.Web",
+      "console": "internalConsole",
+      "env": {
+        "NO_COLOR": "1"
+      },
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "Local:\\s+(https?://\\S+)"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "KGI 完整開發環境",
+      "configurations": ["KGI API（Swagger）", "KGI 前端"],
+      "stopAll": true
+    }
+  ]
+}
