@@ -1,0 +1,473 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Kgi.Api | v1",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/warrants": {
+      "get": {
+        "tags": [
+          "Warrant"
+        ],
+        "summary": "查詢權證基本資料，可依代碼關鍵字篩選。",
+        "operationId": "GetWarrants",
+        "parameters": [
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WarrantResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WarrantResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WarrantResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/warrants/{id}/preview": {
+      "post": {
+        "tags": [
+          "Warrant"
+        ],
+        "summary": "預覽理論價值與避險張數，不新增紀錄。",
+        "operationId": "PreviewWarrant",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrialRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrialRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrialRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrialResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrialResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrialResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/warrants/{id}/trials": {
+      "post": {
+        "tags": [
+          "Warrant"
+        ],
+        "summary": "依標的股價重新計算並儲存試算紀錄。",
+        "operationId": "SaveWarrantTrial",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrialRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrialRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrialRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrialResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrialResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrialResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Warrant"
+        ],
+        "summary": "取得指定權證最近十筆試算紀錄。",
+        "operationId": "GetWarrantTrials",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrialResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrialResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrialResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "TrialRequest": {
+        "required": [
+          "marketPrice"
+        ],
+        "type": "object",
+        "properties": {
+          "marketPrice": {
+            "pattern": "^[0-9]+(?:\\.[0-9]{1,4})?$",
+            "type": "string",
+            "description": "標的股價（元），以十進位字串傳送以保留精度；必須大於零、最多四位小數，且不超過 99999999999999.9999。API 亦相容 JSON 數字輸入。"
+          }
+        },
+        "description": "權證預覽與儲存試算使用的輸入資料。"
+      },
+      "TrialResponse": {
+        "required": [
+          "logId",
+          "warrantId",
+          "marketPrice",
+          "theoryPrice",
+          "hedgeQty",
+          "createdTime"
+        ],
+        "type": "object",
+        "properties": {
+          "logId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "description": "試算紀錄流水號；預覽時為空值（null），成功儲存後為資料庫產生的正整數。",
+            "format": "int32"
+          },
+          "warrantId": {
+            "type": "string",
+            "description": "本次試算所屬的權證代碼，最多十個字元，例如 03001C。"
+          },
+          "marketPrice": {
+            "type": "string",
+            "description": "試算時輸入的標的股價（元），以固定四位小數的十進位字串表示。"
+          },
+          "theoryPrice": {
+            "type": "string",
+            "description": "計算出的權證理論價值（元），以固定四位小數的十進位字串表示。"
+          },
+          "hedgeQty": {
+            "type": "string",
+            "description": "建議避險張數（張），以固定兩位小數的十進位字串表示。"
+          },
+          "createdTime": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "試算存檔時間，使用 UTC 的 ISO 8601 格式；預覽時為空值（null）。",
+            "format": "date-time"
+          }
+        },
+        "description": "權證試算結果，可用於即時預覽、儲存結果與歷史紀錄。"
+      },
+      "WarrantResponse": {
+        "required": [
+          "warrantId",
+          "strikePrice",
+          "conversionRatio",
+          "warrantType",
+          "positionQty"
+        ],
+        "type": "object",
+        "properties": {
+          "warrantId": {
+            "type": "string",
+            "description": "權證代碼，最多十個字元，例如 03001C。"
+          },
+          "strikePrice": {
+            "type": "string",
+            "description": "履約價格（元），以固定四位小數的十進位字串表示。"
+          },
+          "conversionRatio": {
+            "type": "string",
+            "description": "行使比例，以固定四位小數的十進位字串表示；例如 0.1000 代表十換一。"
+          },
+          "warrantType": {
+            "enum": [
+              "CALL",
+              "PUT"
+            ],
+            "type": "string",
+            "description": "權證類型，CALL 為認購，PUT 為認售。"
+          },
+          "positionQty": {
+            "type": "integer",
+            "description": "發行商持有部位的庫存張數（張），為非負整數。",
+            "format": "int32"
+          }
+        },
+        "description": "權證基本資料，價格與比例以十進位字串保留精度。"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Warrant"
+    }
+  ]
+}
