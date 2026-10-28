@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Kgi.Api/Kgi.Api.csproj" />
+  <Project Path="Kgi.Tests/Kgi.Tests.csproj" />
+</Solution>
