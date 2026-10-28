@@ -1,0 +1,4 @@
+interface:
+  display_name: "KGI 後端開發"
+  short_description: "依專案慣例開發 .NET API、DAO、Dapper 與 SQL，維持職責分工及前後端契約"
+  default_prompt: "使用 $kgi-backend 處理這次後端需求，沿用 Controller、Service、Dao 分工並說明契約、資料庫與驗證的影響。"

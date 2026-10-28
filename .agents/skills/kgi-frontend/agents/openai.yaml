@@ -1,0 +1,4 @@
+interface:
+  display_name: "KGI 前端開發"
+  short_description: "依專案慣例開發 Vue 畫面與 API 串接，維持緊湊清楚的 ERP 操作體驗"
+  default_prompt: "使用 $kgi-frontend 處理這次前端需求，沿用 KGI 專案慣例並提供相關人工驗證步驟。"
