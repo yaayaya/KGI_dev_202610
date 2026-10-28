@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+.DS_Store
+**/bin/
+**/obj/
+**/node_modules/
+tmp/
+output/
+*.bak
+**/TestResults/
+.vs/
+**/dist/
+**/coverage/
