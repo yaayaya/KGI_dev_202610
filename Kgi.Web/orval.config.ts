@@ -12,8 +12,10 @@ export default defineConfig({
       target: './src/api/generated/kgiApi.ts',
       mode: 'split',
       client: 'axios-functions',
+      // Orval v8 預設使用 Fetch，明確沿用既有 Axios 與自訂請求入口。
+      httpClient: 'axios',
       clean: true,
-      prettier: true,
+      formatter: 'prettier',
       override: {
         header: () => ['由 Orval 自動產生，請勿手動修改。', '來源：Kgi.Api/openapi/Kgi.Api.json'],
         // HTTP 設定由共用入口維護，API 路徑與請求／回應定義則由契約生成。

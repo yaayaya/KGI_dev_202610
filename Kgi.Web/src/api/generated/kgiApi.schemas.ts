@@ -2,26 +2,20 @@
  * 由 Orval 自動產生，請勿手動修改。
  * 來源：Kgi.Api/openapi/Kgi.Api.json
  */
-export type ProblemDetailsType = null | string;
-
-export type ProblemDetailsTitle = null | string;
-
-/**
- * @pattern ^-?(?:0|[1-9]\d*)$
- */
-export type ProblemDetailsStatus = null | number | string;
-
-export type ProblemDetailsDetail = null | string;
-
-export type ProblemDetailsInstance = null | string;
-
 export interface ProblemDetails {
-  type?: ProblemDetailsType;
-  title?: ProblemDetailsTitle;
-  /** @pattern ^-?(?:0|[1-9]\d*)$ */
-  status?: ProblemDetailsStatus;
-  detail?: ProblemDetailsDetail;
-  instance?: ProblemDetailsInstance;
+  /** @nullable */
+  type?: string | null;
+  /** @nullable */
+  title?: string | null;
+  /**
+   * @nullable
+   * @pattern ^-?(?:0|[1-9]\d*)$
+   */
+  status?: number | string | null;
+  /** @nullable */
+  detail?: string | null;
+  /** @nullable */
+  instance?: string | null;
 }
 
 /**
@@ -36,21 +30,14 @@ export interface TrialRequest {
 }
 
 /**
- * 試算紀錄流水號；預覽時為空值（null），成功儲存後為資料庫產生的正整數。
- */
-export type TrialResponseLogId = null | number;
-
-/**
- * 試算存檔時間，使用 UTC 的 ISO 8601 格式；預覽時為空值（null）。
- */
-export type TrialResponseCreatedTime = null | string;
-
-/**
  * 權證試算結果，可用於即時預覽、儲存結果與歷史紀錄。
  */
 export interface TrialResponse {
-  /** 試算紀錄流水號；預覽時為空值（null），成功儲存後為資料庫產生的正整數。 */
-  logId: TrialResponseLogId;
+  /**
+   * 試算紀錄流水號；預覽時為空值（null），成功儲存後為資料庫產生的正整數。
+   * @nullable
+   */
+  logId: number | null;
   /** 本次試算所屬的權證代碼，最多十個字元，例如 03001C。 */
   warrantId: string;
   /** 試算時輸入的標的股價（元），以固定四位小數的十進位字串表示。 */
@@ -59,8 +46,11 @@ export interface TrialResponse {
   theoryPrice: string;
   /** 建議避險張數（張），以固定兩位小數的十進位字串表示。 */
   hedgeQty: string;
-  /** 試算存檔時間，使用 UTC 的 ISO 8601 格式；預覽時為空值（null）。 */
-  createdTime: TrialResponseCreatedTime;
+  /**
+   * 試算存檔時間，使用 UTC 的 ISO 8601 格式；預覽時為空值（null）。
+   * @nullable
+   */
+  createdTime: string | null;
 }
 
 /**
@@ -69,7 +59,6 @@ export interface TrialResponse {
 export type WarrantResponseWarrantType =
   (typeof WarrantResponseWarrantType)[keyof typeof WarrantResponseWarrantType];
 
-// eslint-disable-next-line @typescript-eslint/no-redeclare
 export const WarrantResponseWarrantType = {
   CALL: 'CALL',
   PUT: 'PUT',

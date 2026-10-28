@@ -17,7 +17,7 @@ flowchart LR
 
 ## 使用方式
 
-需要 .NET 10、Node.js 與 SQL Server。Node.js 與 Orval 的版本及相容需求以 [Kgi.Web/package.json](Kgi.Web/package.json) 為準。以下指令皆在專案根目錄執行。
+需要 .NET 10、Node.js 24 LTS 與 SQL Server。Node.js 主要版本由 [.nvmrc](.nvmrc) 指定，使用 nvm 時可執行 `nvm install` 與 `nvm use` 切換；Node.js 與 Orval 的版本需求以 [Kgi.Web/package.json](Kgi.Web/package.json) 為準，實際套件版本由 lockfile 固定。以下指令皆在專案根目錄執行。
 
 1. 準備可連線的 SQL Server 執行個體。
 2. 首次使用先建立 `KGI` 資料庫，在該資料庫依序執行[建表](Kgi.Tests/Database/Scripts/InitTestDb/DbScript/BuildInitDbScript.sql)、[索引](Kgi.Tests/Database/Scripts/InitTestDb/DbScript/BuildIndexScript.sql)、[預設資料](Kgi.Tests/Database/Scripts/InitTestDb/Preload.sql)。建表會清除既有資料。
