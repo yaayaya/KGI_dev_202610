@@ -1,6 +1,7 @@
 using Kgi.Api.Data;
 using Kgi.Api.Exceptions;
 using Kgi.Api.Extensions;
+using Kgi.Api.Features.Lending;
 using Kgi.Api.Features.Warrants;
 using Microsoft.OpenApi;
 
@@ -17,6 +18,9 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddSingleton<SqlConnectionFactory>();
 builder.Services.AddScoped<WarrantDao>();
 builder.Services.AddScoped<WarrantService>();
+builder.Services.AddScoped<LendingDao>();
+builder.Services.AddScoped<LendingService>();
+builder.Services.AddSingleton<MarketPriceCsvParser>();
 
 var app = builder.Build();
 
@@ -31,7 +35,7 @@ app.MapControllers();
 app.Run();
 
 /// <summary>
-/// API 啟動入口，註冊權證服務、資料庫存取及共用例外處理。
+/// API 啟動入口，註冊權證與借券服務、資料庫存取及共用例外處理。
 /// </summary>
 public partial class Program
 {

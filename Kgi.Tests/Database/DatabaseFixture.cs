@@ -7,8 +7,8 @@ public sealed class DatabaseCollection : ICollectionFixture<DatabaseFixture>;
 
 public sealed class DatabaseFixture : IAsyncLifetime
 {
-    public string ConnectionString => Environment.GetEnvironmentVariable("KGI_TEST_CONNECTION_STRING")
-        ?? throw new InvalidOperationException("請設定 KGI_TEST_CONNECTION_STRING，並指定 KGI_Test 資料庫。");
+    public string ConnectionString => DatabaseTestConfiguration.ConnectionString
+        ?? throw new InvalidOperationException("請設定 KGI_TEST_CONNECTION_STRING，或於 appsettings.Development.json 設定 ConnectionStrings:KgiTest。");
 
     public async Task InitializeAsync()
     {
@@ -23,14 +23,13 @@ public sealed class DatabaseFixture : IAsyncLifetime
 
 public sealed class DatabaseFactAttribute : FactAttribute
 {
-    public static bool IsEnabled => Environment.GetEnvironmentVariable("KGI_ALLOW_DB_REBUILD") == "1"
-        && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("KGI_TEST_CONNECTION_STRING"));
+    public static bool IsEnabled => DatabaseTestConfiguration.IsEnabled;
 
     public DatabaseFactAttribute()
     {
         if (!IsEnabled)
         {
-            Skip = "資料庫測試需設定 KGI_ALLOW_DB_REBUILD=1 與 KGI_TEST_CONNECTION_STRING。";
+            Skip = "資料庫測試需設定 KGI_ALLOW_DB_REBUILD=1 與 KGI_TEST_CONNECTION_STRING（可於 appsettings.Development.json 設定）。";
         }
     }
 }

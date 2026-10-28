@@ -18,5 +18,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Update="Database/Scripts/InitTestDb/**/*.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="appsettings*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

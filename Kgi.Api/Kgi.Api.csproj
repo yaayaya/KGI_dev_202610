@@ -14,6 +14,7 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
     <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.14" PrivateAssets="all" />
     <PackageReference Include="Dapper" Version="2.1.89" />
+    <PackageReference Include="CsvHelper" Version="33.1.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.7" />
     <!-- SqlClient 的間接依賴需指定已修補的版本。 -->
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />

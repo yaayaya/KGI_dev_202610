@@ -19,9 +19,9 @@ public static class InitTestDbTool
 
     public static async Task RebuildAsync(string connectionString)
     {
-        if (Environment.GetEnvironmentVariable("KGI_ALLOW_DB_REBUILD") != "1")
+        if (!DatabaseTestConfiguration.AllowDbRebuild && Environment.GetEnvironmentVariable("KGI_ALLOW_DB_REBUILD") != "1")
         {
-            throw new InvalidOperationException("請明確設定 KGI_ALLOW_DB_REBUILD=1 才能執行重建。");
+            throw new InvalidOperationException("請明確設定 KGI_ALLOW_DB_REBUILD=1 或於 appsettings.Development.json 啟用才能執行重建。");
         }
 
         ValidateDatabaseName(connectionString);

@@ -323,10 +323,332 @@
           }
         }
       }
+    },
+    "/api/lending/monitor": {
+      "get": {
+        "tags": [
+          "Lending"
+        ],
+        "summary": "取得指定行情日的借券監控；省略日期時使用最新行情日，尚無行情的合約標為未計算。",
+        "operationId": "GetLendingMonitor",
+        "parameters": [
+          {
+            "name": "tradeDate",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LendingMonitorResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LendingMonitorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LendingMonitorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lending/market-prices/import": {
+      "post": {
+        "tags": [
+          "Lending"
+        ],
+        "summary": "匯入一份完整的單日 UTF-8 CSV，檔案上限 2 MiB；同日行情整批替換，格式錯誤或缺少標的時全部拒絕。",
+        "operationId": "ImportMarketPrices",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "required": [
+                  "file"
+                ],
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "$ref": "#/components/schemas/IFormFile"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LendingImportResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LendingImportResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LendingImportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "IFormFile": {
+        "type": "string",
+        "format": "binary"
+      },
+      "LendingContractResponse": {
+        "required": [
+          "contractNo",
+          "stockId",
+          "borrowedQty",
+          "collateralValue",
+          "closingPrice",
+          "maintenanceRatio",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "contractNo": {
+            "type": "string",
+            "description": "借券合約編號，最多二十個字元。"
+          },
+          "stockId": {
+            "type": "string",
+            "description": "借出股票代碼，最多十個字元，保留前導零。"
+          },
+          "borrowedQty": {
+            "type": "integer",
+            "description": "借出數量（張），一張為一千股，為正整數。",
+            "format": "int32"
+          },
+          "collateralValue": {
+            "type": "string",
+            "description": "擔保品總市值（元），以固定兩位小數的十進位字串表示。"
+          },
+          "closingPrice": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "所選交易日收盤價（元），以固定四位小數的十進位字串表示；缺價時為 null。"
+          },
+          "maintenanceRatio": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "維持率（%），以固定兩位小數的十進位字串表示；缺價時為 null。狀態以未格式化數值判斷。"
+          },
+          "status": {
+            "enum": [
+              "Normal",
+              "Warning",
+              "Call",
+              "Unpriced"
+            ],
+            "type": "string",
+            "description": "監控狀態：Normal 正常、Warning 預警、Call 處置、Unpriced 尚無價格。"
+          }
+        },
+        "description": "單筆借券合約及 SQL 計算結果，金融數值以十進位字串傳輸。"
+      },
+      "LendingImportResponse": {
+        "required": [
+          "tradeDate",
+          "importedCount"
+        ],
+        "type": "object",
+        "properties": {
+          "tradeDate": {
+            "type": "string",
+            "description": "本次匯入的行情交易日，格式為 yyyy-MM-dd。"
+          },
+          "importedCount": {
+            "type": "integer",
+            "description": "成功匯入的股票行情筆數，同日原有行情已由本批完整替換。",
+            "format": "int32"
+          }
+        },
+        "description": "行情整批匯入成功後的結果；完成後可重新取得監控總覽。"
+      },
+      "LendingMonitorResponse": {
+        "required": [
+          "tradeDate",
+          "totalCount",
+          "normalCount",
+          "warningCount",
+          "callCount",
+          "unpricedCount",
+          "contracts"
+        ],
+        "type": "object",
+        "properties": {
+          "tradeDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "行情交易日，格式為 yyyy-MM-dd；尚未匯入任何行情時為 null。"
+          },
+          "totalCount": {
+            "type": "integer",
+            "description": "全部借券合約件數，包含尚無價格而無法計算的合約。",
+            "format": "int32"
+          },
+          "normalCount": {
+            "type": "integer",
+            "description": "維持率大於或等於 140% 的正常合約件數。",
+            "format": "int32"
+          },
+          "warningCount": {
+            "type": "integer",
+            "description": "維持率大於或等於 120%、小於 140% 的預警合約件數。",
+            "format": "int32"
+          },
+          "callCount": {
+            "type": "integer",
+            "description": "維持率小於 120% 的處置合約件數。",
+            "format": "int32"
+          },
+          "unpricedCount": {
+            "type": "integer",
+            "description": "缺少指定交易日行情而尚未計算的合約件數，不計入正常件數。",
+            "format": "int32"
+          },
+          "contracts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LendingContractResponse"
+            },
+            "description": "全部合約明細；無合約時為空陣列，篩選及分頁由畫面處理。"
+          }
+        },
+        "description": "借券監控同一份查詢結果的統計與合約明細。"
+      },
       "ProblemDetails": {
         "type": "object",
         "properties": {
@@ -468,6 +790,9 @@
   "tags": [
     {
       "name": "Warrant"
+    },
+    {
+      "name": "Lending"
     }
   ]
 }

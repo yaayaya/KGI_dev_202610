@@ -27,7 +27,7 @@ const NotFoundPage = defineComponent({
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    // 目前僅提供 Q1，根網址直接進入權證試算。
+    // 根網址保留既有的權證試算入口，其他功能由共用選單切換。
     { path: '/', redirect: '/warrants' },
     // 業務頁採延後載入，新增功能時在此登記對應的 Feature 與頁面標題。
     {
@@ -35,6 +35,12 @@ export const router = createRouter({
       name: 'warrants',
       component: () => import('./features/warrants/WarrantsPage.vue'),
       meta: { title: '權證試算' },
+    },
+    {
+      path: '/lending',
+      name: 'lending',
+      component: () => import('./features/lending/LendingPage.vue'),
+      meta: { title: '借券維持率監控' },
     },
     // 最後才處理未匹配的路徑，避免攔截已登記的功能頁。
     {

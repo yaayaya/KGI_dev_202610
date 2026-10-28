@@ -4,3 +4,9 @@ CREATE INDEX IX_Warrant_Trial_Log_Warrant_ID_Created_Time_Log_ID
     ON dbo.Warrant_Trial_Log (Warrant_ID, Created_Time DESC, Log_ID DESC)
     INCLUDE (Market_Price, Theory_Price, Hedge_Qty);
 GO
+
+-- 按股票代碼對照同交易日行情，涵蓋批次維持率查詢所需的部位與擔保品欄位。
+CREATE INDEX IX_Lending_Contract_Stock_ID
+    ON dbo.Lending_Contract (Stock_ID)
+    INCLUDE (Borrowed_Qty, Collateral_Val);
+GO

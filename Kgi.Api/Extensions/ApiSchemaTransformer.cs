@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Kgi.Api.Features.Lending;
 using Kgi.Api.Features.Warrants;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
@@ -6,19 +7,20 @@ using Microsoft.OpenApi;
 namespace Kgi.Api.Extensions;
 
 /// <summary>
-/// 補齊前端產碼使用的必要欄位、權證類型與精確股價契約，不改變 API 的既有輸入相容性。
+/// 補齊前端產碼使用的必要欄位、功能狀態與精確金融數值契約，不改變 API 的既有輸入相容性。
 /// </summary>
 public sealed class ApiSchemaTransformer : IOpenApiSchemaTransformer
 {
     /// <summary>
-    /// 將權證 DTO 的 OpenAPI 定義整理為可直接產生 TypeScript 型別的契約。
+    /// 將權證與借券 DTO 的 OpenAPI 定義整理為可直接產生 TypeScript 型別的契約。
     /// </summary>
     public Task TransformAsync(OpenApiSchema schema, OpenApiSchemaTransformerContext context,
         CancellationToken cancellationToken)
     {
         var type = context.JsonTypeInfo.Type;
         if (schema.Properties is null ||
-            (type != typeof(TrialRequest) && type != typeof(WarrantResponse) && type != typeof(TrialResponse)))
+            (type != typeof(TrialRequest) && type != typeof(WarrantResponse) && type != typeof(TrialResponse)
+             && type != typeof(LendingMonitorResponse) && type != typeof(LendingContractResponse) && type != typeof(LendingImportResponse)))
         {
             return Task.CompletedTask;
         }
@@ -61,7 +63,41 @@ public sealed class ApiSchemaTransformer : IOpenApiSchemaTransformer
                 Description = "試算紀錄流水號；預覽時為空值（null），成功儲存後為資料庫產生的正整數。"
             };
         }
+        else if (type == typeof(LendingContractResponse))
+        {
+            SetInteger(schema, "borrowedQty");
+            schema.Properties["status"] = new OpenApiSchema
+            {
+                Type = JsonSchemaType.String,
+                Enum = [JsonValue.Create("Normal"), JsonValue.Create("Warning"), JsonValue.Create("Call"), JsonValue.Create("Unpriced")],
+                Description = "監控狀態：Normal 正常、Warning 預警、Call 處置、Unpriced 尚無價格。"
+            };
+        }
+        else if (type == typeof(LendingMonitorResponse))
+        {
+            foreach (var property in new[] { "totalCount", "normalCount", "warningCount", "callCount", "unpricedCount" })
+            {
+                SetInteger(schema, property);
+            }
+        }
+        else if (type == typeof(LendingImportResponse))
+        {
+            SetInteger(schema, "importedCount");
+        }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 整數實際輸出 JSON number，排除全域字串數字相容設定對產碼契約的影響。
+    /// </summary>
+    private static void SetInteger(OpenApiSchema schema, string property)
+    {
+        schema.Properties![property] = new OpenApiSchema
+        {
+            Type = JsonSchemaType.Integer,
+            Format = "int32",
+            Description = schema.Properties[property].Description
+        };
     }
 }
