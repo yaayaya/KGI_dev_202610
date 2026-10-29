@@ -10,3 +10,17 @@ CREATE INDEX IX_Lending_Contract_Stock_ID
     ON dbo.Lending_Contract (Stock_ID)
     INCLUDE (Borrowed_Qty, Collateral_Val);
 GO
+
+-- Q4：依公司讀取異動歷史、股東會與股利批次。
+CREATE INDEX IX_Share_Transfer_Log_Company_Time_ID
+    ON dbo.Share_Transfer_Log (Company_Code, Created_Time DESC, Transfer_ID DESC)
+    INCLUDE (Request_ID, Item_No, Transfer_Type, From_Shareholder, To_Shareholder, Transfer_Qty);
+
+CREATE INDEX IX_Shareholders_Meeting_Company_Date_ID
+    ON dbo.Shareholders_Meeting (Company_Code, Meeting_Date DESC, Meeting_ID)
+    INCLUDE (Meeting_Type, Notice_Sent_Flag, Snapshot_ID);
+
+CREATE INDEX IX_Dividend_Batch_Company_ID
+    ON dbo.Dividend_Batch (Company_Code, Batch_ID)
+    INCLUDE (Dividend_Type, Status, Snapshot_ID);
+GO

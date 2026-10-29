@@ -1,6 +1,6 @@
 # KGI 證券作業平台
 
-目前提供[權證試算（Q1）](_Doc/Q1.md)與[借券維持率監控（Q2）](_Doc/Q2.md)。功能可由左側選單切換。
+目前提供[權證試算（Q1）](_Doc/Q1.md)、[借券維持率監控（Q2）](_Doc/Q2.md)與[股務代理作業（Q4）](_Doc/Q4.md)。功能可由左側選單切換。
 
 ## 系統架構
 
@@ -16,6 +16,8 @@ flowchart LR
 `WarrantService` 負責輸入正規化、驗證、金融計算、流程與 DTO／UTC 格式化；`WarrantDao` 負責 Dapper 參數、SQL 執行、POCO 映射及連線生命週期。SQL 集中在 `WarrantSql`，`SqlConnectionFactory` 只建立連線，維持單一 API 專案。
 
 Q2 沿用相同分工：`LendingService` 負責 CSV 匯入驗證與流程，`LendingDao` 負責交易式批次寫入；維持率依題目要求，由 `LendingSql` 使用 SQL JOIN 一次計算全部合約。前端 CSV 預覽使用 Papa Parse，正式匯入由後端 CsvHelper 完整解析。
+
+Q4 的 `StockAffairsService` 負責股權異動驗證、精確股利計算與基準日判斷；`StockAffairsDao` 在交易鎖內呼叫功能專用計算，再原子寫入名簿、稽核或批次明細。通知及發放均為模擬，基準日及股票畸零股的示範規則見 [Q4](_Doc/Q4.md)。
 
 ## 使用方式
 
@@ -44,25 +46,33 @@ npm --prefix Kgi.Web run dev
 
 開啟[操作畫面](http://127.0.0.1:5173)，或使用 [Swagger](http://127.0.0.1:5141/swagger) 試呼叫 API。
 
-### 透過測試重建 KGI_Test
+### 重建 KGI 並驗證真實功能
 
-測試總管可找到並單獨執行 `Kgi.Tests.Database.RebuildDbTests.RebuildDb`。此測試會清除 `KGI_Test` 的 Q1、Q2 資料，依序執行建表、索引與預設資料腳本，再確認有 800 筆權證、1,000 筆借券合約，且試算紀錄與行情為空。
+本版本只有一個 `KGI`；應用程式、重建與測試均使用前述 User Secrets 或環境變數 `ConnectionStrings__Kgi` 所指定的同一組連線。測試總管可單獨執行 `Kgi.Tests.Database.RebuildDbTests.RebuildDb`，也可執行完整 API／資料庫測試。
 
-執行前須設定環境變數或於 `appsettings.Development.json` 設定；若使用 IDE 測試總管，亦會自動載入 `appsettings.Development.json`。未設定時，資料庫測試會顯示跳過。
+重建會清除 `KGI` 的 Q1、Q2、Q4 資料，依序執行建表、索引與預設資料腳本，再核對固定數量與控制總額。Q1 為 800 筆權證、Q2 為 1,000 筆合約；Q4 為 3 間公司、300 位股東、506 筆名簿及 1,000 筆快照明細，保留一筆示範歷史過戶，通知及股利明細為空。執行期間應暫停其他寫入，避免與共用資料庫的操作互相影響。
 
 ```powershell
-$env:KGI_TEST_CONNECTION_STRING = 'Server=<資料庫主機>,<連接埠>;Database=KGI_Test;User Id=<資料庫帳號>;Password="<資料庫密碼>";Encrypt=True;TrustServerCertificate=<true或false>;'
 $env:KGI_ALLOW_DB_REBUILD = '1'
 dotnet test Kgi.Tests/Kgi.Tests.csproj --filter 'FullyQualifiedName=Kgi.Tests.Database.RebuildDbTests.RebuildDb'
+
+# 全套測試會透過真實 HTTP 測試主機與 SQL Server 驗證功能。
+dotnet test Kgi.Tests/Kgi.Tests.csproj
 ```
 
-重建工具只接受資料庫名稱 `KGI_Test`，不會重建應用程式使用的 `KGI`。一般 DB/API 測試也會透過共用 fixture 在測試開始前自動重建 `KGI_Test`；單獨執行 `RebuildDb` 時只重建一次。
+重建工具只接受資料庫名稱 `KGI`，不會改寫連線中的資料庫名稱；清表前另以實際連線核對 `DB_NAME()`。一般 DB/API 測試透過共用 fixture 在開始前重建同一個 `KGI`；單獨執行 `RebuildDb` 時只重建一次。未設定 `KGI_ALLOW_DB_REBUILD=1` 或連線時，資料庫測試會跳過；完整驗收必須確認零跳過。
 
 ### 已有 Q1 資料時加入 Q2
 
-在既有 `KGI` 資料庫依序執行 [Q2 增量建表](Kgi.Tests/Database/Scripts/InitTestDb/DbScript/AddQ2Lending.sql)及[預設資料](Kgi.Tests/Database/Scripts/InitTestDb/Preload.sql)。增量腳本只補上 Q2 物件，預設資料只補缺少的主檔，不清除 Q1 權證或試算紀錄；不要對既有資料執行全量建表腳本。
+在既有 `KGI` 資料庫依序執行 [Q2 增量建表](Kgi.Tests/Database/Scripts/InitTestDb/DbScript/AddQ2Lending.sql)、[Q4 增量建表](Kgi.Tests/Database/Scripts/InitTestDb/DbScript/AddQ4StockAffairs.sql)及[預設資料](Kgi.Tests/Database/Scripts/InitTestDb/Preload.sql)。預設資料涵蓋全部功能，因此須先備齊 Q2、Q4 資料表。增量腳本保留既有資料；不要對既有資料執行全量建表腳本。
 
 開啟[借券維持率監控](http://127.0.0.1:5173/lending)，選取[行情 CSV 範例](_Doc/examples/Market_Price.csv)，可先按「查看預覽」確認前十筆，再按「確認匯入」。完整規則與人工檢查項目見 [Q2](_Doc/Q2.md)。API 啟動與契約產碼不會自動套用資料庫腳本。
+
+### 已有 Q1 與 Q2 資料時加入 Q4
+
+在既有 `KGI` 資料庫依序執行 [Q4 增量建表](Kgi.Tests/Database/Scripts/InitTestDb/DbScript/AddQ4StockAffairs.sql)及[預設資料](Kgi.Tests/Database/Scripts/InitTestDb/Preload.sql)，再重新啟動 API。Q4 初次預載在單一交易內加入三間公司與固定資料；三間公司均已存在時跳過 Q4 預載，不重置已操作名簿、通知或股利狀態。若只存在部分示範公司會明確拒絕，避免混入不完整基準。
+
+開啟[股務代理作業](http://127.0.0.1:5173/stock-affairs)，可切換三間示範公司。丙公司提供容易核算的過戶／質權、歷史快照及股利案例；現金股利正確總額為 `56.64` 元，另有總額錯誤與畸零股兩筆預期拒絕批次。資料數量、示範規則及人工驗收見 [Q4](_Doc/Q4.md)。
 
 ## API 產碼
 

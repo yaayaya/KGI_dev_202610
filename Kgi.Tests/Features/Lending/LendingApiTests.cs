@@ -16,7 +16,7 @@ using Microsoft.Extensions.Configuration;
 namespace Kgi.Tests.Features.Lending;
 
 /// <summary>
-/// 在明確啟用的 KGI_Test 中驗證批次匯入、SQL 維持率與 Q1 資料隔離。
+/// 在明確允許重建的共用 KGI 中驗證批次匯入、SQL 維持率與既有 Q1 資料不受影響。
 /// </summary>
 [Collection("Database")]
 [Trait("Category", "Database")]
@@ -293,7 +293,7 @@ public sealed class LendingApiTests(DatabaseFixture database)
     }
 
     /// <summary>
-    /// 建立只連向 fixture 指定 KGI_Test 的 API 測試主機。
+    /// 建立使用 fixture 正式 ConnectionStrings:Kgi 的 API 測試主機。
     /// </summary>
     private WebApplicationFactory<Program> CreateFactory() => new WebApplicationFactory<Program>()
         .WithWebHostBuilder(builder =>
@@ -366,7 +366,7 @@ public sealed class LendingApiTests(DatabaseFixture database)
     }
 
     /// <summary>
-    /// 建立獨立的測試資料庫連線，不跨測試共用已開啟連線。
+    /// 建立共用 KGI 的個別連線，不跨測試共用已開啟連線。
     /// </summary>
     private SqlConnection CreateConnection() => new(database.ConnectionString);
 

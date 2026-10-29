@@ -324,6 +324,870 @@
         }
       }
     },
+    "/api/stock-affairs/companies": {
+      "get": {
+        "tags": [
+          "StockAffairs"
+        ],
+        "summary": "取得公司切換清單及全體名簿統計。",
+        "operationId": "GetStockCompanies",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockCompanyResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockCompanyResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockCompanyResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock-affairs/{companyCode}/register": {
+      "get": {
+        "tags": [
+          "StockAffairs"
+        ],
+        "summary": "取得公司名簿與受讓人候選股東，身分資訊已遮罩。",
+        "operationId": "GetStockRegister",
+        "parameters": [
+          {
+            "name": "companyCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockRegisterResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockRegisterResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockRegisterResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock-affairs/{companyCode}/transfers": {
+      "get": {
+        "tags": [
+          "StockAffairs"
+        ],
+        "summary": "取得公司的股權異動與稽核前後值。",
+        "operationId": "GetStockTransfers",
+        "parameters": [
+          {
+            "name": "companyCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockTransferResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockTransferResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockTransferResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "StockAffairs"
+        ],
+        "summary": "以同一交易執行單筆或批次過戶及質權異動。",
+        "operationId": "ApplyStockTransfers",
+        "parameters": [
+          {
+            "name": "companyCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockTransferRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockTransferRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockTransferRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockTransferResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockTransferResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockTransferResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock-affairs/{companyCode}/meetings": {
+      "get": {
+        "tags": [
+          "StockAffairs"
+        ],
+        "summary": "取得公司股東會與通知狀態。",
+        "operationId": "GetStockMeetings",
+        "parameters": [
+          {
+            "name": "companyCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockMeetingResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockMeetingResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockMeetingResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock-affairs/{companyCode}/meetings/{meetingId}/notices": {
+      "get": {
+        "tags": [
+          "StockAffairs"
+        ],
+        "summary": "取得固定基準日通知預覽或已寄發的凍結明細。",
+        "operationId": "GetStockNotices",
+        "parameters": [
+          {
+            "name": "companyCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "meetingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockNoticesResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockNoticesResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockNoticesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "StockAffairs"
+        ],
+        "summary": "模擬寄發通知，重送不重複產生或更新寄發時間。",
+        "operationId": "SendStockNotices",
+        "parameters": [
+          {
+            "name": "companyCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "meetingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockNoticesResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockNoticesResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockNoticesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock-affairs/{companyCode}/dividends": {
+      "get": {
+        "tags": [
+          "StockAffairs"
+        ],
+        "summary": "取得現金及股票股利批次列表。",
+        "operationId": "GetStockDividends",
+        "parameters": [
+          {
+            "name": "companyCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockDividendResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockDividendResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockDividendResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock-affairs/{companyCode}/dividends/{batchId}/preview": {
+      "post": {
+        "tags": [
+          "StockAffairs"
+        ],
+        "summary": "逐戶試算股利與精確對帳，不改變批次狀態。",
+        "operationId": "PreviewStockDividend",
+        "parameters": [
+          {
+            "name": "companyCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "batchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockDividendPreview"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockDividendPreview"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockDividendPreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock-affairs/{companyCode}/dividends/{batchId}/confirm": {
+      "post": {
+        "tags": [
+          "StockAffairs"
+        ],
+        "summary": "交易內重算及確認模擬發放，同批次不可重複執行。",
+        "operationId": "ConfirmStockDividend",
+        "parameters": [
+          {
+            "name": "companyCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "batchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockDividendResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockDividendResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockDividendResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/lending/monitor": {
       "get": {
         "tags": [
@@ -687,6 +1551,611 @@
           }
         }
       },
+      "StockCandidateResponse": {
+        "required": [
+          "shareholderId",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "shareholderId": {
+            "type": "string",
+            "description": "股東代碼。"
+          },
+          "name": {
+            "type": "string",
+            "description": "股東姓名。"
+          }
+        },
+        "description": "可作受讓人的股東主檔。"
+      },
+      "StockCompanyResponse": {
+        "required": [
+          "companyCode",
+          "companyName",
+          "shareholderCount",
+          "totalShares",
+          "pledgedShares",
+          "pledgedRatio"
+        ],
+        "type": "object",
+        "properties": {
+          "companyCode": {
+            "type": "string",
+            "description": "公司代碼。"
+          },
+          "companyName": {
+            "type": "string",
+            "description": "公司名稱。"
+          },
+          "shareholderCount": {
+            "type": "integer",
+            "description": "正持股股東人數。",
+            "format": "int32"
+          },
+          "totalShares": {
+            "type": "string",
+            "description": "總持股股數，整數字串。"
+          },
+          "pledgedShares": {
+            "type": "string",
+            "description": "已質押股數，整數字串。"
+          },
+          "pledgedRatio": {
+            "type": "string",
+            "description": "已質押比例，百分比固定兩位小數字串。"
+          }
+        },
+        "description": "公司名簿總覽，聚合股數以字串保留精度。"
+      },
+      "StockDividendDetailResponse": {
+        "required": [
+          "shareholderId",
+          "name",
+          "shareQty",
+          "dividendValue"
+        ],
+        "type": "object",
+        "properties": {
+          "shareholderId": {
+            "type": "string",
+            "description": "股東代碼。"
+          },
+          "name": {
+            "type": "string",
+            "description": "基準日股東姓名。"
+          },
+          "shareQty": {
+            "type": "integer",
+            "description": "基準日持股股數。",
+            "format": "int32"
+          },
+          "dividendValue": {
+            "type": "string",
+            "description": "配發金額或股數，兩位小數字串。"
+          }
+        },
+        "description": "逐戶股利試算或凍結明細。"
+      },
+      "StockDividendPreview": {
+        "required": [
+          "batchId",
+          "dividendType",
+          "dividendPerShare",
+          "totalAmount",
+          "calculatedTotal",
+          "unit",
+          "matchesExpected",
+          "canConfirm",
+          "validationMessage",
+          "details"
+        ],
+        "type": "object",
+        "properties": {
+          "batchId": {
+            "type": "string",
+            "description": "批次代碼。"
+          },
+          "dividendType": {
+            "enum": [
+              "CASH",
+              "STOCK"
+            ],
+            "type": "string",
+            "description": "CASH 現金或 STOCK 股票。"
+          },
+          "dividendPerShare": {
+            "type": "string",
+            "description": "每股金額或配股率，四位小數。"
+          },
+          "totalAmount": {
+            "type": "string",
+            "description": "主檔預計總額，兩位小數。"
+          },
+          "calculatedTotal": {
+            "type": "string",
+            "description": "逐戶加總結果，兩位小數。"
+          },
+          "unit": {
+            "enum": [
+              "TWD",
+              "SHARE"
+            ],
+            "type": "string",
+            "description": "TWD 為元，SHARE 為股。"
+          },
+          "matchesExpected": {
+            "type": "boolean",
+            "description": "逐戶總額是否精確等於主檔。"
+          },
+          "canConfirm": {
+            "type": "boolean",
+            "description": "是否尚未完成且所有驗證皆通過。"
+          },
+          "validationMessage": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "阻擋確認的原因；可確認時為 null。"
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockDividendDetailResponse"
+            },
+            "description": "依股東代碼排序的明細。"
+          }
+        },
+        "description": "逐戶股利試算與精確對帳結果。"
+      },
+      "StockDividendResponse": {
+        "required": [
+          "batchId",
+          "dividendType",
+          "dividendPerShare",
+          "totalAmount",
+          "unit",
+          "status",
+          "recordDate"
+        ],
+        "type": "object",
+        "properties": {
+          "batchId": {
+            "type": "string",
+            "description": "批次代碼。"
+          },
+          "dividendType": {
+            "enum": [
+              "CASH",
+              "STOCK"
+            ],
+            "type": "string",
+            "description": "CASH 現金或 STOCK 股票。"
+          },
+          "dividendPerShare": {
+            "type": "string",
+            "description": "每股配發金額或配股率，四位小數字串。"
+          },
+          "totalAmount": {
+            "type": "string",
+            "description": "主檔預計總元或總股數，兩位小數字串。"
+          },
+          "unit": {
+            "enum": [
+              "TWD",
+              "SHARE"
+            ],
+            "type": "string",
+            "description": "TWD 為元，SHARE 為股。"
+          },
+          "status": {
+            "type": "integer",
+            "description": "0 待處理，1 完成。",
+            "format": "int32"
+          },
+          "recordDate": {
+            "type": "string",
+            "description": "基準日，yyyy-MM-dd；缺快照時為空字串。"
+          }
+        },
+        "description": "股利批次清單。"
+      },
+      "StockDividendResult": {
+        "required": [
+          "batchId",
+          "status",
+          "totalAmount",
+          "detailCount",
+          "alreadyCompleted"
+        ],
+        "type": "object",
+        "properties": {
+          "batchId": {
+            "type": "string",
+            "description": "股利批次代碼。"
+          },
+          "status": {
+            "type": "integer",
+            "description": "完成後固定為 1。",
+            "format": "int32"
+          },
+          "totalAmount": {
+            "type": "string",
+            "description": "完成總額，兩位小數字串。"
+          },
+          "detailCount": {
+            "type": "integer",
+            "description": "凍結股利明細筆數。",
+            "format": "int32"
+          },
+          "alreadyCompleted": {
+            "type": "boolean",
+            "description": "是否回傳既有完成結果。"
+          }
+        },
+        "description": "股利確認結果。"
+      },
+      "StockMeetingResponse": {
+        "required": [
+          "meetingId",
+          "meetingType",
+          "meetingDate",
+          "recordDate",
+          "noticeSent",
+          "recipientCount"
+        ],
+        "type": "object",
+        "properties": {
+          "meetingId": {
+            "type": "string",
+            "description": "會議代碼。"
+          },
+          "meetingType": {
+            "enum": [
+              "AGM",
+              "EGM"
+            ],
+            "type": "string",
+            "description": "會議類型 AGM 或 EGM。"
+          },
+          "meetingDate": {
+            "type": "string",
+            "description": "會議日期，yyyy-MM-dd。"
+          },
+          "recordDate": {
+            "type": "string",
+            "description": "會議前三十日的示範基準日，yyyy-MM-dd。"
+          },
+          "noticeSent": {
+            "type": "boolean",
+            "description": "是否完成模擬通知。"
+          },
+          "recipientCount": {
+            "type": "integer",
+            "description": "正持股收件股東人數。",
+            "format": "int32"
+          }
+        },
+        "description": "股東會列表與通知狀態。"
+      },
+      "StockNoticeResponse": {
+        "required": [
+          "shareholderId",
+          "name",
+          "address",
+          "shareQty",
+          "sentTime"
+        ],
+        "type": "object",
+        "properties": {
+          "shareholderId": {
+            "type": "string",
+            "description": "股東代碼。"
+          },
+          "name": {
+            "type": "string",
+            "description": "基準日股東姓名。"
+          },
+          "address": {
+            "type": "string",
+            "description": "基準日通知地址。"
+          },
+          "shareQty": {
+            "type": "integer",
+            "description": "基準日持股股數。",
+            "format": "int32"
+          },
+          "sentTime": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "模擬通知時間，UTC；未寄發為 null。"
+          }
+        },
+        "description": "基準日通知收件資料。"
+      },
+      "StockNoticesResponse": {
+        "required": [
+          "meetingId",
+          "noticeSent",
+          "recipients"
+        ],
+        "type": "object",
+        "properties": {
+          "meetingId": {
+            "type": "string",
+            "description": "會議代碼。"
+          },
+          "noticeSent": {
+            "type": "boolean",
+            "description": "是否已完成模擬通知。"
+          },
+          "recipients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockNoticeResponse"
+            },
+            "description": "固定基準日的收件名單。"
+          }
+        },
+        "description": "股東會通知預覽或已寄發明細。"
+      },
+      "StockRegisterResponse": {
+        "required": [
+          "companyCode",
+          "shareholders",
+          "candidates"
+        ],
+        "type": "object",
+        "properties": {
+          "companyCode": {
+            "type": "string",
+            "description": "公司代碼。"
+          },
+          "shareholders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockShareholderResponse"
+            },
+            "description": "目前名簿，包含零持股者。"
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockCandidateResponse"
+            },
+            "description": "可供受讓的股東主檔。"
+          }
+        },
+        "description": "指定公司的名簿與全體股東候選清單。"
+      },
+      "StockShareholderResponse": {
+        "required": [
+          "shareholderId",
+          "name",
+          "maskedIdNo",
+          "address",
+          "shareQty",
+          "pledgeQty",
+          "availableQty"
+        ],
+        "type": "object",
+        "properties": {
+          "shareholderId": {
+            "type": "string",
+            "description": "股東代碼。"
+          },
+          "name": {
+            "type": "string",
+            "description": "股東姓名。"
+          },
+          "maskedIdNo": {
+            "type": "string",
+            "description": "已遮罩的測試身分證或統編。"
+          },
+          "address": {
+            "type": "string",
+            "description": "通訊地址。"
+          },
+          "shareQty": {
+            "type": "integer",
+            "description": "持股股數，非負整數。",
+            "format": "int32"
+          },
+          "pledgeQty": {
+            "type": "integer",
+            "description": "質押股數，非負整數。",
+            "format": "int32"
+          },
+          "availableQty": {
+            "type": "integer",
+            "description": "可用股數，持股減質押。",
+            "format": "int32"
+          }
+        },
+        "description": "目前公司股東名簿，身分欄位僅提供遮罩。"
+      },
+      "StockTransferItem": {
+        "required": [
+          "transferType",
+          "fromShareholder",
+          "quantity"
+        ],
+        "type": "object",
+        "properties": {
+          "transferType": {
+            "enum": [
+              "TRANSFER",
+              "PLEDGE",
+              "UNPLEDGE"
+            ],
+            "type": "string",
+            "description": "異動類型，TRANSFER、PLEDGE、UNPLEDGE。"
+          },
+          "fromShareholder": {
+            "type": "string",
+            "description": "出讓人或質權操作股東。"
+          },
+          "toShareholder": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "受讓人；質權操作時可省略或為 null。"
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "異動股數，必須為正整數。",
+            "format": "int32"
+          }
+        },
+        "description": "一筆過戶或質權異動。"
+      },
+      "StockTransferRequest": {
+        "required": [
+          "requestId",
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "description": "防重送識別碼，一至六十四字元。"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockTransferItem"
+            },
+            "description": "依輸入順序處理的異動明細。"
+          }
+        },
+        "description": "單筆或最多一百筆股權異動請求。"
+      },
+      "StockTransferResponse": {
+        "required": [
+          "transferId",
+          "requestId",
+          "transferType",
+          "fromShareholder",
+          "toShareholder",
+          "transferQty",
+          "fromShareQtyBefore",
+          "fromShareQtyAfter",
+          "fromPledgeQtyBefore",
+          "fromPledgeQtyAfter",
+          "toShareQtyBefore",
+          "toShareQtyAfter",
+          "toPledgeQtyBefore",
+          "toPledgeQtyAfter",
+          "operatorId",
+          "createdTime"
+        ],
+        "type": "object",
+        "properties": {
+          "transferId": {
+            "type": "integer",
+            "description": "異動流水號。",
+            "format": "int32"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "異動請求識別碼。"
+          },
+          "transferType": {
+            "type": "string",
+            "description": "異動類型。"
+          },
+          "fromShareholder": {
+            "type": "string",
+            "description": "出讓人或質權股東。"
+          },
+          "toShareholder": {
+            "type": "string",
+            "description": "受讓人；質權時為同一股東。"
+          },
+          "transferQty": {
+            "type": "integer",
+            "description": "異動股數。",
+            "format": "int32"
+          },
+          "fromShareQtyBefore": {
+            "type": "integer",
+            "description": "出讓人異動前持股。",
+            "format": "int32"
+          },
+          "fromShareQtyAfter": {
+            "type": "integer",
+            "description": "出讓人異動後持股。",
+            "format": "int32"
+          },
+          "fromPledgeQtyBefore": {
+            "type": "integer",
+            "description": "出讓人異動前質押。",
+            "format": "int32"
+          },
+          "fromPledgeQtyAfter": {
+            "type": "integer",
+            "description": "出讓人異動後質押。",
+            "format": "int32"
+          },
+          "toShareQtyBefore": {
+            "type": "integer",
+            "description": "受讓人異動前持股。",
+            "format": "int32"
+          },
+          "toShareQtyAfter": {
+            "type": "integer",
+            "description": "受讓人異動後持股。",
+            "format": "int32"
+          },
+          "toPledgeQtyBefore": {
+            "type": "integer",
+            "description": "受讓人異動前質押。",
+            "format": "int32"
+          },
+          "toPledgeQtyAfter": {
+            "type": "integer",
+            "description": "受讓人異動後質押。",
+            "format": "int32"
+          },
+          "operatorId": {
+            "type": "string",
+            "description": "後端記錄的示範操作者。"
+          },
+          "createdTime": {
+            "type": "string",
+            "description": "操作時間，ISO 8601 UTC。"
+          }
+        },
+        "description": "股權異動與前後值稽核紀錄。"
+      },
+      "StockTransferResult": {
+        "required": [
+          "requestId",
+          "transferCount",
+          "alreadyApplied"
+        ],
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "description": "本次請求識別碼。"
+          },
+          "transferCount": {
+            "type": "integer",
+            "description": "成功的異動明細筆數。",
+            "format": "int32"
+          },
+          "alreadyApplied": {
+            "type": "boolean",
+            "description": "是否為相同請求的既有結果。"
+          }
+        },
+        "description": "異動交易執行結果。"
+      },
       "TrialRequest": {
         "required": [
           "marketPrice"
@@ -790,6 +2259,9 @@
   "tags": [
     {
       "name": "Warrant"
+    },
+    {
+      "name": "StockAffairs"
     },
     {
       "name": "Lending"

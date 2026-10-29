@@ -93,6 +93,338 @@ export interface ProblemDetails {
 }
 
 /**
+ * 可作受讓人的股東主檔。
+ */
+export interface StockCandidateResponse {
+  /** 股東代碼。 */
+  shareholderId: string;
+  /** 股東姓名。 */
+  name: string;
+}
+
+/**
+ * 公司名簿總覽，聚合股數以字串保留精度。
+ */
+export interface StockCompanyResponse {
+  /** 公司代碼。 */
+  companyCode: string;
+  /** 公司名稱。 */
+  companyName: string;
+  /** 正持股股東人數。 */
+  shareholderCount: number;
+  /** 總持股股數，整數字串。 */
+  totalShares: string;
+  /** 已質押股數，整數字串。 */
+  pledgedShares: string;
+  /** 已質押比例，百分比固定兩位小數字串。 */
+  pledgedRatio: string;
+}
+
+/**
+ * 逐戶股利試算或凍結明細。
+ */
+export interface StockDividendDetailResponse {
+  /** 股東代碼。 */
+  shareholderId: string;
+  /** 基準日股東姓名。 */
+  name: string;
+  /** 基準日持股股數。 */
+  shareQty: number;
+  /** 配發金額或股數，兩位小數字串。 */
+  dividendValue: string;
+}
+
+/**
+ * CASH 現金或 STOCK 股票。
+ */
+export type StockDividendPreviewDividendType =
+  (typeof StockDividendPreviewDividendType)[keyof typeof StockDividendPreviewDividendType];
+
+export const StockDividendPreviewDividendType = {
+  CASH: 'CASH',
+  STOCK: 'STOCK',
+} as const;
+
+/**
+ * TWD 為元，SHARE 為股。
+ */
+export type StockDividendPreviewUnit =
+  (typeof StockDividendPreviewUnit)[keyof typeof StockDividendPreviewUnit];
+
+export const StockDividendPreviewUnit = {
+  TWD: 'TWD',
+  SHARE: 'SHARE',
+} as const;
+
+/**
+ * 逐戶股利試算與精確對帳結果。
+ */
+export interface StockDividendPreview {
+  /** 批次代碼。 */
+  batchId: string;
+  /** CASH 現金或 STOCK 股票。 */
+  dividendType: StockDividendPreviewDividendType;
+  /** 每股金額或配股率，四位小數。 */
+  dividendPerShare: string;
+  /** 主檔預計總額，兩位小數。 */
+  totalAmount: string;
+  /** 逐戶加總結果，兩位小數。 */
+  calculatedTotal: string;
+  /** TWD 為元，SHARE 為股。 */
+  unit: StockDividendPreviewUnit;
+  /** 逐戶總額是否精確等於主檔。 */
+  matchesExpected: boolean;
+  /** 是否尚未完成且所有驗證皆通過。 */
+  canConfirm: boolean;
+  /**
+   * 阻擋確認的原因；可確認時為 null。
+   * @nullable
+   */
+  validationMessage: string | null;
+  /** 依股東代碼排序的明細。 */
+  details: StockDividendDetailResponse[];
+}
+
+/**
+ * CASH 現金或 STOCK 股票。
+ */
+export type StockDividendResponseDividendType =
+  (typeof StockDividendResponseDividendType)[keyof typeof StockDividendResponseDividendType];
+
+export const StockDividendResponseDividendType = {
+  CASH: 'CASH',
+  STOCK: 'STOCK',
+} as const;
+
+/**
+ * TWD 為元，SHARE 為股。
+ */
+export type StockDividendResponseUnit =
+  (typeof StockDividendResponseUnit)[keyof typeof StockDividendResponseUnit];
+
+export const StockDividendResponseUnit = {
+  TWD: 'TWD',
+  SHARE: 'SHARE',
+} as const;
+
+/**
+ * 股利批次清單。
+ */
+export interface StockDividendResponse {
+  /** 批次代碼。 */
+  batchId: string;
+  /** CASH 現金或 STOCK 股票。 */
+  dividendType: StockDividendResponseDividendType;
+  /** 每股配發金額或配股率，四位小數字串。 */
+  dividendPerShare: string;
+  /** 主檔預計總元或總股數，兩位小數字串。 */
+  totalAmount: string;
+  /** TWD 為元，SHARE 為股。 */
+  unit: StockDividendResponseUnit;
+  /** 0 待處理，1 完成。 */
+  status: number;
+  /** 基準日，yyyy-MM-dd；缺快照時為空字串。 */
+  recordDate: string;
+}
+
+/**
+ * 股利確認結果。
+ */
+export interface StockDividendResult {
+  /** 股利批次代碼。 */
+  batchId: string;
+  /** 完成後固定為 1。 */
+  status: number;
+  /** 完成總額，兩位小數字串。 */
+  totalAmount: string;
+  /** 凍結股利明細筆數。 */
+  detailCount: number;
+  /** 是否回傳既有完成結果。 */
+  alreadyCompleted: boolean;
+}
+
+/**
+ * 會議類型 AGM 或 EGM。
+ */
+export type StockMeetingResponseMeetingType =
+  (typeof StockMeetingResponseMeetingType)[keyof typeof StockMeetingResponseMeetingType];
+
+export const StockMeetingResponseMeetingType = {
+  AGM: 'AGM',
+  EGM: 'EGM',
+} as const;
+
+/**
+ * 股東會列表與通知狀態。
+ */
+export interface StockMeetingResponse {
+  /** 會議代碼。 */
+  meetingId: string;
+  /** 會議類型 AGM 或 EGM。 */
+  meetingType: StockMeetingResponseMeetingType;
+  /** 會議日期，yyyy-MM-dd。 */
+  meetingDate: string;
+  /** 會議前三十日的示範基準日，yyyy-MM-dd。 */
+  recordDate: string;
+  /** 是否完成模擬通知。 */
+  noticeSent: boolean;
+  /** 正持股收件股東人數。 */
+  recipientCount: number;
+}
+
+/**
+ * 基準日通知收件資料。
+ */
+export interface StockNoticeResponse {
+  /** 股東代碼。 */
+  shareholderId: string;
+  /** 基準日股東姓名。 */
+  name: string;
+  /** 基準日通知地址。 */
+  address: string;
+  /** 基準日持股股數。 */
+  shareQty: number;
+  /**
+   * 模擬通知時間，UTC；未寄發為 null。
+   * @nullable
+   */
+  sentTime: string | null;
+}
+
+/**
+ * 股東會通知預覽或已寄發明細。
+ */
+export interface StockNoticesResponse {
+  /** 會議代碼。 */
+  meetingId: string;
+  /** 是否已完成模擬通知。 */
+  noticeSent: boolean;
+  /** 固定基準日的收件名單。 */
+  recipients: StockNoticeResponse[];
+}
+
+/**
+ * 目前公司股東名簿，身分欄位僅提供遮罩。
+ */
+export interface StockShareholderResponse {
+  /** 股東代碼。 */
+  shareholderId: string;
+  /** 股東姓名。 */
+  name: string;
+  /** 已遮罩的測試身分證或統編。 */
+  maskedIdNo: string;
+  /** 通訊地址。 */
+  address: string;
+  /** 持股股數，非負整數。 */
+  shareQty: number;
+  /** 質押股數，非負整數。 */
+  pledgeQty: number;
+  /** 可用股數，持股減質押。 */
+  availableQty: number;
+}
+
+/**
+ * 指定公司的名簿與全體股東候選清單。
+ */
+export interface StockRegisterResponse {
+  /** 公司代碼。 */
+  companyCode: string;
+  /** 目前名簿，包含零持股者。 */
+  shareholders: StockShareholderResponse[];
+  /** 可供受讓的股東主檔。 */
+  candidates: StockCandidateResponse[];
+}
+
+/**
+ * 異動類型，TRANSFER、PLEDGE、UNPLEDGE。
+ */
+export type StockTransferItemTransferType =
+  (typeof StockTransferItemTransferType)[keyof typeof StockTransferItemTransferType];
+
+export const StockTransferItemTransferType = {
+  TRANSFER: 'TRANSFER',
+  PLEDGE: 'PLEDGE',
+  UNPLEDGE: 'UNPLEDGE',
+} as const;
+
+/**
+ * 一筆過戶或質權異動。
+ */
+export interface StockTransferItem {
+  /** 異動類型，TRANSFER、PLEDGE、UNPLEDGE。 */
+  transferType: StockTransferItemTransferType;
+  /** 出讓人或質權操作股東。 */
+  fromShareholder: string;
+  /**
+   * 受讓人；質權操作時可省略或為 null。
+   * @nullable
+   */
+  toShareholder?: string | null;
+  /** 異動股數，必須為正整數。 */
+  quantity: number;
+}
+
+/**
+ * 單筆或最多一百筆股權異動請求。
+ */
+export interface StockTransferRequest {
+  /** 防重送識別碼，一至六十四字元。 */
+  requestId: string;
+  /** 依輸入順序處理的異動明細。 */
+  items: StockTransferItem[];
+}
+
+/**
+ * 股權異動與前後值稽核紀錄。
+ */
+export interface StockTransferResponse {
+  /** 異動流水號。 */
+  transferId: number;
+  /** 異動請求識別碼。 */
+  requestId: string;
+  /** 異動類型。 */
+  transferType: string;
+  /** 出讓人或質權股東。 */
+  fromShareholder: string;
+  /** 受讓人；質權時為同一股東。 */
+  toShareholder: string;
+  /** 異動股數。 */
+  transferQty: number;
+  /** 出讓人異動前持股。 */
+  fromShareQtyBefore: number;
+  /** 出讓人異動後持股。 */
+  fromShareQtyAfter: number;
+  /** 出讓人異動前質押。 */
+  fromPledgeQtyBefore: number;
+  /** 出讓人異動後質押。 */
+  fromPledgeQtyAfter: number;
+  /** 受讓人異動前持股。 */
+  toShareQtyBefore: number;
+  /** 受讓人異動後持股。 */
+  toShareQtyAfter: number;
+  /** 受讓人異動前質押。 */
+  toPledgeQtyBefore: number;
+  /** 受讓人異動後質押。 */
+  toPledgeQtyAfter: number;
+  /** 後端記錄的示範操作者。 */
+  operatorId: string;
+  /** 操作時間，ISO 8601 UTC。 */
+  createdTime: string;
+}
+
+/**
+ * 異動交易執行結果。
+ */
+export interface StockTransferResult {
+  /** 本次請求識別碼。 */
+  requestId: string;
+  /** 成功的異動明細筆數。 */
+  transferCount: number;
+  /** 是否為相同請求的既有結果。 */
+  alreadyApplied: boolean;
+}
+
+/**
  * 權證預覽與儲存試算使用的輸入資料。
  */
 export interface TrialRequest {

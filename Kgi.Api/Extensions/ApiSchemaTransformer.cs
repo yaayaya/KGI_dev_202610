@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Kgi.Api.Features.Lending;
+using Kgi.Api.Features.StockAffairs;
 using Kgi.Api.Features.Warrants;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
@@ -12,12 +13,31 @@ namespace Kgi.Api.Extensions;
 public sealed class ApiSchemaTransformer : IOpenApiSchemaTransformer
 {
     /// <summary>
-    /// 將權證與借券 DTO 的 OpenAPI 定義整理為可直接產生 TypeScript 型別的契約。
+    /// 將權證、借券與股務 DTO 的 OpenAPI 定義整理為可直接產生 TypeScript 型別的契約。
     /// </summary>
     public Task TransformAsync(OpenApiSchema schema, OpenApiSchemaTransformerContext context,
         CancellationToken cancellationToken)
     {
         var type = context.JsonTypeInfo.Type;
+        if (schema.Properties is not null && type.Namespace == typeof(StockCompanyResponse).Namespace)
+        {
+            schema.Required = new HashSet<string>(schema.Properties.Keys);
+            foreach (var property in type.GetProperties())
+            {
+                var name = System.Text.Json.JsonNamingPolicy.CamelCase.ConvertName(property.Name);
+                if (property.PropertyType == typeof(int) && schema.Properties.ContainsKey(name)) SetInteger(schema, name);
+            }
+            if (type == typeof(StockTransferItem))
+            {
+                // 質權操作不需要另外指定受讓人，保留可省略與 nullable 語意。
+                schema.Required.Remove("toShareholder");
+                SetEnum(schema, "transferType", "TRANSFER", "PLEDGE", "UNPLEDGE");
+            }
+            if (schema.Properties.ContainsKey("dividendType")) SetEnum(schema, "dividendType", "CASH", "STOCK");
+            if (schema.Properties.ContainsKey("unit")) SetEnum(schema, "unit", "TWD", "SHARE");
+            if (type == typeof(StockMeetingResponse)) SetEnum(schema, "meetingType", "AGM", "EGM");
+            return Task.CompletedTask;
+        }
         if (schema.Properties is null ||
             (type != typeof(TrialRequest) && type != typeof(WarrantResponse) && type != typeof(TrialResponse)
              && type != typeof(LendingMonitorResponse) && type != typeof(LendingContractResponse) && type != typeof(LendingImportResponse)))
@@ -97,6 +117,19 @@ public sealed class ApiSchemaTransformer : IOpenApiSchemaTransformer
         {
             Type = JsonSchemaType.Integer,
             Format = "int32",
+            Description = schema.Properties[property].Description
+        };
+    }
+
+    /// <summary>
+    /// 補齊固定字串選項，讓前端產碼保留金融單位與功能狀態。
+    /// </summary>
+    private static void SetEnum(OpenApiSchema schema, string property, params string[] values)
+    {
+        schema.Properties![property] = new OpenApiSchema
+        {
+            Type = JsonSchemaType.String,
+            Enum = values.Select(value => (System.Text.Json.Nodes.JsonNode)JsonValue.Create(value)!).ToList(),
             Description = schema.Properties[property].Description
         };
     }

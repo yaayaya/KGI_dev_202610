@@ -11,7 +11,7 @@ public sealed class GlobalExceptionHandler(
     ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
 {
     /// <summary>
-    /// 輸入錯誤回傳 400、查無資料回傳 404；其餘例外記錄詳細錯誤並回傳不含內部資訊的 500。
+    /// 輸入錯誤回傳 400、查無資料回傳 404、識別碼衝突回傳 409；其餘例外回傳不含內部資訊的 500。
     /// </summary>
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
@@ -29,6 +29,12 @@ public sealed class GlobalExceptionHandler(
         {
             status = StatusCodes.Status404NotFound;
             title = "資料不存在";
+            detail = exception.Message;
+        }
+        else if (exception is ConflictException)
+        {
+            status = StatusCodes.Status409Conflict;
+            title = "操作內容衝突";
             detail = exception.Message;
         }
         else

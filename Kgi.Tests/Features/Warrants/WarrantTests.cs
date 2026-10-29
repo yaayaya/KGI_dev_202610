@@ -281,7 +281,7 @@ public sealed class WarrantApiTests(DatabaseFixture database)
         });
 
     /// <summary>
-    /// 建立僅連向測試資料庫的獨立 SqlClient 連線。
+    /// 建立連向共用 KGI 的個別 SqlClient 連線。
     /// </summary>
     private SqlConnection CreateConnection() => new(database.ConnectionString);
 

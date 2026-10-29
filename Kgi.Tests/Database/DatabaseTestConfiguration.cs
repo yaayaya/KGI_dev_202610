@@ -1,114 +1,57 @@
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 
 namespace Kgi.Tests.Database;
 
 /// <summary>
-/// 集中讀取資料庫測試設定，依序支援環境變數與 appsettings.Development.json。
+/// 與本機 API 共用 KGI 連線，依序讀取設定檔、User Secrets 及環境變數。
 /// </summary>
 public static class DatabaseTestConfiguration
 {
-    private static readonly Lazy<string?> LazyConnectionString = new(ResolveConnectionString);
-    private static readonly Lazy<bool> LazyAllowDbRebuild = new(ResolveAllowDbRebuild);
+    private static readonly Lazy<IConfiguration> Configuration = new(LoadConfiguration);
 
     /// <summary>
-    /// 取得 KGI_Test 連線字串；若尚未設定環境變數，會從設定檔載入並回填環境變數。
+    /// 直接取得 API 使用的 ConnectionStrings:Kgi，不改寫資料庫名稱或環境變數。
     /// </summary>
-    public static string? ConnectionString => LazyConnectionString.Value;
+    public static string? ConnectionString => Configuration.Value.GetConnectionString("Kgi");
 
     /// <summary>
-    /// 判斷是否允許重建測試資料庫；若由設定檔啟用，會同步回填環境變數。
+    /// 只有明確設定環境變數 KGI_ALLOW_DB_REBUILD=1 才允許清除並重建 KGI。
     /// </summary>
-    public static bool AllowDbRebuild => LazyAllowDbRebuild.Value;
+    public static bool AllowDbRebuild => Environment.GetEnvironmentVariable("KGI_ALLOW_DB_REBUILD") == "1";
 
     /// <summary>
     /// 判斷資料庫測試是否具備執行條件。
     /// </summary>
     public static bool IsEnabled => AllowDbRebuild && !string.IsNullOrWhiteSpace(ConnectionString);
 
-    private static IConfiguration LoadConfiguration()
-    {
-        var builder = new ConfigurationBuilder();
-        builder.SetBasePath(AppContext.BaseDirectory);
-        builder.AddJsonFile("appsettings.json", optional: true);
-        builder.AddJsonFile("appsettings.Development.json", optional: true);
+    /// <summary>
+    /// 載入本機開發 API 的同一組設定來源，後加入的來源優先。
+    /// </summary>
+    private static IConfiguration LoadConfiguration() => new ConfigurationBuilder()
+        .SetBasePath(FindApiConfigurationDirectory())
+        .AddJsonFile("appsettings.json", optional: true)
+        .AddJsonFile("appsettings.Development.json", optional: true)
+        .AddUserSecrets(typeof(Program).Assembly, optional: true)
+        .AddEnvironmentVariables()
+        .Build();
 
-        var currentDir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (currentDir != null)
+    /// <summary>
+    /// 優先使用原始 API 設定目錄，獨立測試產物則使用複製至輸出目錄的設定。
+    /// </summary>
+    private static string FindApiConfigurationDirectory()
+    {
+        var currentDirectory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (currentDirectory != null)
         {
-            var apiDevJson = Path.Combine(currentDir.FullName, "Kgi.Api", "appsettings.Development.json");
-            if (File.Exists(apiDevJson))
+            var apiDirectory = Path.Combine(currentDirectory.FullName, "Kgi.Api");
+            if (File.Exists(Path.Combine(apiDirectory, "Kgi.Api.csproj")))
             {
-                builder.AddJsonFile(apiDevJson, optional: true);
-                break;
+                return apiDirectory;
             }
 
-            var rootDevJson = Path.Combine(currentDir.FullName, "appsettings.Development.json");
-            if (File.Exists(rootDevJson))
-            {
-                builder.AddJsonFile(rootDevJson, optional: true);
-                break;
-            }
-
-            currentDir = currentDir.Parent;
+            currentDirectory = currentDirectory.Parent;
         }
 
-        builder.AddEnvironmentVariables();
-        return builder.Build();
-    }
-
-    private static string? ResolveConnectionString()
-    {
-        var envValue = Environment.GetEnvironmentVariable("KGI_TEST_CONNECTION_STRING");
-        if (!string.IsNullOrWhiteSpace(envValue))
-        {
-            return envValue;
-        }
-
-        var configuration = LoadConfiguration();
-        var connectionString = configuration.GetConnectionString("KgiTest")
-            ?? configuration.GetConnectionString("KGI_TEST_CONNECTION_STRING")
-            ?? configuration["KGI_TEST_CONNECTION_STRING"];
-
-        if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            var defaultConnection = configuration.GetConnectionString("Kgi");
-            if (!string.IsNullOrWhiteSpace(defaultConnection))
-            {
-                var builder = new SqlConnectionStringBuilder(defaultConnection)
-                {
-                    InitialCatalog = "KGI_Test"
-                };
-                connectionString = builder.ConnectionString;
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(connectionString))
-        {
-            Environment.SetEnvironmentVariable("KGI_TEST_CONNECTION_STRING", connectionString);
-        }
-
-        return connectionString;
-    }
-
-    private static bool ResolveAllowDbRebuild()
-    {
-        var envValue = Environment.GetEnvironmentVariable("KGI_ALLOW_DB_REBUILD");
-        if (!string.IsNullOrWhiteSpace(envValue))
-        {
-            return envValue == "1" || envValue.Equals("true", StringComparison.OrdinalIgnoreCase);
-        }
-
-        var configuration = LoadConfiguration();
-        var value = configuration["KGI_ALLOW_DB_REBUILD"]
-            ?? configuration["AllowDbRebuild"];
-
-        var isAllowed = value == "1" || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
-        if (isAllowed)
-        {
-            Environment.SetEnvironmentVariable("KGI_ALLOW_DB_REBUILD", "1");
-        }
-
-        return isAllowed;
+        return AppContext.BaseDirectory;
     }
 }

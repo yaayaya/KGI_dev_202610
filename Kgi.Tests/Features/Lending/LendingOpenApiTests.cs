@@ -22,7 +22,7 @@ public sealed class LendingOpenApiTests
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>
                 {
-                    ["ConnectionStrings:Kgi"] = "Server=127.0.0.1,1;Database=KGI_Test;Integrated Security=True;Connect Timeout=1;"
+                    ["ConnectionStrings:Kgi"] = "Server=127.0.0.1,1;Database=KGI;Integrated Security=True;Connect Timeout=1;"
                 }));
         });
         using var client = factory.CreateClient();

@@ -196,7 +196,7 @@ body {
   }
 
   .erp-table th {
-    @apply h-8 whitespace-nowrap border-b bg-muted/60 px-3 text-right text-[11px] font-medium text-muted-foreground;
+    @apply h-8 whitespace-nowrap border-b bg-muted px-3 text-right text-[11px] font-medium text-muted-foreground;
   }
 
   .erp-table td {
