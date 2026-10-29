@@ -1,6 +1,6 @@
 # KGI 證券作業平台
 
-提供[權證試算（Q1）](_Doc/Q1.md)、[借券維持率監控（Q2）](_Doc/Q2.md)、[借券利息結算（Q3）](_Doc/Q3.md)與[股務代理作業（Q4）](_Doc/Q4.md)。四個功能共用單一 `KGI`；Q3 操作與監控全部使用 Vue。
+提供[權證試算（Q1）](_Doc/Q1.md)、[借券維持率監控（Q2）](_Doc/Q2.md)、[借券利息結算（Q3）](_Doc/Q3.md)與[股務代理作業（Q4）](_Doc/Q4.md)。全部使用 Vue，並共用單一資料庫 `KGI`。
 
 ## 環境
 
@@ -32,30 +32,28 @@ npm --prefix Kgi.Web run dev
 - [Swagger](http://127.0.0.1:5141/swagger)
 - [行情 CSV 範例](_Doc/examples/Market_Price.csv)
 
+## 既有資料庫升級
+
+需保留舊資料時，在 SSMS 選擇 `KGI`，依 Q2 → Q3 → Q4 順序執行尚未套用的 [Q2](Kgi.Tests/Database/Scripts/InitTestDb/DbScript/AddQ2Lending.sql)、[Q3](Kgi.Tests/Database/Scripts/InitTestDb/DbScript/AddQ3Interest.sql)、[Q4](Kgi.Tests/Database/Scripts/InitTestDb/DbScript/AddQ4StockAffairs.sql) 增量建表，最後執行 [Preload.sql](Kgi.Tests/Database/Scripts/InitTestDb/Preload.sql)。已執行完整重建可略過；API 啟動不會自動建表或灌資料。
+
 ## 啟用 Q3
 
-既有 `KGI` 依序執行 [Q3 增量建表](Kgi.Tests/Database/Scripts/InitTestDb/DbScript/AddQ3Interest.sql)、[Q4 增量建表](Kgi.Tests/Database/Scripts/InitTestDb/DbScript/AddQ4StockAffairs.sql) 與 [Preload.sql](Kgi.Tests/Database/Scripts/InitTestDb/Preload.sql)，保留原有資料。確認腳本完成後啟用背景結算並重啟 API：
+Q3 預設停用。資料庫就緒後，啟用背景結算並重啟 API：
 
 ```powershell
 dotnet user-secrets set 'InterestSettlement:Enabled' 'true' --project Kgi.Api
 dotnet run --project Kgi.Api
 ```
 
-開啟[借券利息結算](http://127.0.0.1:5173/interest)。預載提供正常千筆批次及故意總額不符批次；公式、交易與監控規則見 [Q3](_Doc/Q3.md)。API 啟動不會自動建表或灌資料。
-
-## 啟用 Q4
-
-既有 Q1／Q2／Q3 的 `KGI` 依序執行 [Q4 增量建表](Kgi.Tests/Database/Scripts/InitTestDb/DbScript/AddQ4StockAffairs.sql) 與 [Preload.sql](Kgi.Tests/Database/Scripts/InitTestDb/Preload.sql)，保留既有資料。預載涵蓋全部功能，若尚未有 Q3，先執行其增量建表。
-
-開啟[股務代理作業](http://127.0.0.1:5173/stock-affairs)。預載提供 3 間公司、300 位股東、506 筆名簿、1,000 筆基準日快照、6 場會議與 8 個股利批次。過戶／質權使用確認 Dialog；通知與發放為模擬外部作業，明細及狀態實際寫入同一個 `KGI`。操作及精確控制總額見 [Q4](_Doc/Q4.md)。
+開啟[借券利息結算](http://127.0.0.1:5173/interest)，操作與示範資料見 [Q3](_Doc/Q3.md)。Q1、Q2、Q4 不需額外啟用。
 
 ## 測試
 
-測試沿用 API 的 `ConnectionStrings:Kgi`。一般 DB/API 測試只建立及清理自己的唯一權證、行情日期與結算批次，不自動重建或清空 `KGI`；未啟用時跳過。
+測試沿用 API 的 `ConnectionStrings:Kgi`。一般 DB/API 測試只建立及清理自己的資料，不自動重建或清空 `KGI`；未啟用時跳過。
 
 ```powershell
 $env:KGI_RUN_DB_TESTS = '1'
-dotnet test Kgi.Tests/Kgi.Tests.csproj --filter 'Category!=DatabaseReset'
+dotnet test Kgi.Tests/Kgi.Tests.csproj -c Release --filter 'Category!=DatabaseReset'
 ```
 
 **手動重建及全域行情重置會刪除既有資料**，獨立分類為 `DatabaseReset`，另須明確啟用。只有需要重建時，才執行指定入口：
@@ -63,10 +61,10 @@ dotnet test Kgi.Tests/Kgi.Tests.csproj --filter 'Category!=DatabaseReset'
 ```powershell
 $env:KGI_RUN_DB_TESTS = '1'
 $env:KGI_ALLOW_DB_REBUILD = '1'
-dotnet test Kgi.Tests/Kgi.Tests.csproj --filter 'FullyQualifiedName=Kgi.Tests.Database.RebuildDbTests.RebuildDb'
+dotnet test Kgi.Tests/Kgi.Tests.csproj -c Release --filter 'FullyQualifiedName=Kgi.Tests.Database.RebuildDbTests.RebuildDb'
 ```
 
-重建腳本的手寫來源為 `Kgi.Tests/Database/Scripts/InitTestDb/`。修改來源後，執行 `pwsh DBSCRIPT/Generate-Rebuild.ps1` 同步產製可在 SSMS 執行的完整重建入口。
+兩種重建入口使用相同的建表、索引及預載來源，皆只操作 `KGI`。
 
 ## API 產碼
 
@@ -75,3 +73,8 @@ dotnet test Kgi.Tests/Kgi.Tests.csproj --filter 'FullyQualifiedName=Kgi.Tests.Da
 ```powershell
 npm --prefix Kgi.Web run api:update
 ```
+
+## 設計架構
+
+- Vue 依功能拆分畫面與狀態，API 採 `Controller → Service → Dao → KGI`，讓驗證、金融計算與資料存取各自集中。
+- 金額由後端使用 `decimal` 計算；Dao 使用 Dapper、參數化 SQL 與交易，確保精度及整批寫入一致。各功能架構見上方 Q1～Q4 文件。
