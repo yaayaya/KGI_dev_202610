@@ -16,7 +16,7 @@ using Microsoft.Extensions.Configuration;
 namespace Kgi.Tests.Features.Lending;
 
 /// <summary>
-/// 在單一 KGI 驗證匯入、維持率與 Q1 隔離；一般案例只清理自建資料，全行情重置須額外授權。
+/// 在單一 KGI 驗證匯入、維持率與 Q1 隔離；只清理自建資料，行情重置 SQL 在交易內驗證後回滾。
 /// </summary>
 [Collection("Database")]
 [Trait("Category", "Database")]
@@ -29,70 +29,69 @@ public sealed class LendingApiTests(DatabaseFixture database)
     ];
 
     /// <summary>
-    /// 重置須清除全部交易日，保留借券合約及 Q1 資料，重複操作仍可成功。
+    /// 直接驗證實際重置與監控 SQL，清空多日行情後回滾，不提交對共用行情的刪除。
     /// </summary>
-    [DestructiveDatabaseFact]
-    [Trait("Category", "DatabaseReset")]
-    public async Task ResetClearsAllMarketDatesAndPreservesContractsAndWarrantData()
+    [DatabaseFact]
+    public async Task ResetSqlClearsAllDatesAndPreservesExistingDataAfterRollback()
     {
-        var date = new DateTime(2026, 5, 1);
-        var otherDate = new DateTime(2026, 5, 2);
-        int? logId = null;
+        var date = await FindUnusedTradeDateAsync();
+        var otherDate = await FindUnusedTradeDateAsync(date.AddDays(1));
+        const string pricesSql = """
+            SELECT Stock_ID, Closing_Price, Trade_Date
+            FROM dbo.Market_Price ORDER BY Stock_ID, Trade_Date;
+            """;
+        const string protectedCountsSql = """
+            SELECT COUNT(*) FROM dbo.Lending_Contract
+            UNION ALL SELECT COUNT(*) FROM dbo.Warrant_Master
+            UNION ALL SELECT COUNT(*) FROM dbo.Warrant_Trial_Log;
+            """;
+        await using var connection = CreateConnection();
+        await connection.OpenAsync();
+        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(IsolationLevel.Serializable);
         try
         {
-            await using var factory = CreateFactory();
-            using var client = factory.CreateClient();
-            var contractsBefore = (await GetMonitorAsync(client, date)).Contracts;
-            var warrantsBefore = await client.GetFromJsonAsync<List<WarrantResponse>>("/api/warrants");
-            using var saved = await client.PostAsJsonAsync("/api/warrants/03001C/trials", new TrialRequest { MarketPrice = 110m });
-            saved.EnsureSuccessStatusCode();
-            var trial = Assert.IsType<TrialResponse>(await saved.Content.ReadFromJsonAsync<TrialResponse>());
-            logId = trial.LogId;
+            // 測試資料與全域刪除都留在同一交易；即使斷言失敗，也不會清除使用者行情。
+            await connection.ExecuteAsync(new CommandDefinition(
+                """
+                INSERT INTO dbo.Market_Price (Stock_ID, Closing_Price, Trade_Date)
+                VALUES ('2330', 100, @Date), ('2330', 200, @OtherDate);
+                INSERT INTO dbo.Warrant_Trial_Log (Warrant_ID, Market_Price, Theory_Price, Hedge_Qty)
+                SELECT TOP (1) Warrant_ID, 110, 1, 1 FROM dbo.Warrant_Master ORDER BY Warrant_ID;
+                """, new { Date = date, OtherDate = otherDate }, transaction));
+            var pricesBefore = (await connection.QueryAsync<(string StockId, decimal Price, DateTime TradeDate)>(
+                new CommandDefinition(pricesSql, transaction: transaction))).ToArray();
+            var protectedCounts = (await connection.QueryAsync<int>(
+                new CommandDefinition(protectedCountsSql, transaction: transaction))).ToArray();
+            Assert.All(protectedCounts, count => Assert.True(count > 0));
+            await transaction.SaveAsync("BeforeReset");
 
-            using var firstImport = await ImportAsync(client, CreateCsv(date));
-            firstImport.EnsureSuccessStatusCode();
-            using var secondImport = await ImportAsync(client, CreateCsv(otherDate, 200m));
-            secondImport.EnsureSuccessStatusCode();
-            Assert.Equal(20, (await GetPricesAsync(date)).Count);
-            Assert.Equal(20, (await GetPricesAsync(otherDate)).Count);
-
-            using var reset = await client.DeleteAsync("/api/lending/market-prices");
-            Assert.Equal(HttpStatusCode.NoContent, reset.StatusCode);
-            var monitor = Assert.IsType<LendingMonitorResponse>(
-                await client.GetFromJsonAsync<LendingMonitorResponse>("/api/lending/monitor"));
-            Assert.Null(monitor.TradeDate);
-            Assert.Equal(1000, monitor.TotalCount);
-            Assert.Equal(monitor.TotalCount, monitor.UnpricedCount);
-            Assert.Equal(0, monitor.NormalCount + monitor.WarningCount + monitor.CallCount);
-            Assert.All(monitor.Contracts, contract =>
+            await connection.ExecuteAsync(new CommandDefinition(LendingSql.ResetMarketPrices, transaction: transaction));
+            using (var result = await connection.QueryMultipleAsync(new CommandDefinition(
+                       LendingSql.Monitor, new { TradeDate = (DateTime?)null }, transaction)))
             {
-                Assert.Equal("Unpriced", contract.Status);
-                Assert.Null(contract.ClosingPrice);
-                Assert.Null(contract.MaintenanceRatio);
-            });
-            Assert.Equal(
-                contractsBefore.OrderBy(contract => contract.ContractNo),
-                monitor.Contracts.OrderBy(contract => contract.ContractNo));
-            Assert.Equal(warrantsBefore, await client.GetFromJsonAsync<List<WarrantResponse>>("/api/warrants"));
-            var trials = Assert.IsType<List<TrialResponse>>(
-                await client.GetFromJsonAsync<List<TrialResponse>>("/api/warrants/03001C/trials"));
-            Assert.Contains(trial, trials);
+                Assert.Null(await result.ReadSingleAsync<DateTime?>());
+                var contracts = (await result.ReadAsync<LendingMonitorRow>()).AsList();
+                Assert.Equal(protectedCounts[0], contracts.Count);
+                Assert.All(contracts, contract =>
+                {
+                    Assert.Equal("Unpriced", contract.Status);
+                    Assert.Null(contract.ClosingPrice);
+                    Assert.Null(contract.MaintenanceRatio);
+                });
+            }
+            Assert.Equal(protectedCounts, (await connection.QueryAsync<int>(
+                new CommandDefinition(protectedCountsSql, transaction: transaction))).ToArray());
+            Assert.Equal(0, await connection.ExecuteAsync(
+                new CommandDefinition(LendingSql.ResetMarketPrices, transaction: transaction)));
 
-            using var repeatedReset = await client.DeleteAsync("/api/lending/market-prices");
-            Assert.Equal(HttpStatusCode.NoContent, repeatedReset.StatusCode);
-            await using var connection = CreateConnection();
-            Assert.Equal(0, await connection.ExecuteScalarAsync<int>(new CommandDefinition(
-                "SELECT COUNT(*) FROM dbo.Market_Price;")));
+            // 回到刪除前的儲存點，核對既有行情與兩個測試日期都完整恢復。
+            await transaction.RollbackAsync("BeforeReset");
+            Assert.Equal(pricesBefore, (await connection.QueryAsync<(string StockId, decimal Price, DateTime TradeDate)>(
+                new CommandDefinition(pricesSql, transaction: transaction))).ToArray());
         }
         finally
         {
-            await DeletePricesAsync(date, otherDate);
-            if (logId.HasValue)
-            {
-                await using var connection = CreateConnection();
-                await connection.ExecuteAsync(new CommandDefinition(
-                    "DELETE FROM dbo.Warrant_Trial_Log WHERE Log_ID = @LogId;", new { LogId = logId.Value }));
-            }
+            await transaction.RollbackAsync();
         }
     }
 

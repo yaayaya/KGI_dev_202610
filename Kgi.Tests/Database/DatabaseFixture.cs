@@ -53,7 +53,7 @@ public sealed class DatabaseFixture : IAsyncLifetime
                 """));
             if (!ready)
             {
-                throw new InvalidOperationException("KGI 尚未部署完成，請依 README 套用建表或增量腳本後再執行資料庫測試。");
+                throw new InvalidOperationException("KGI 尚未部署完成，請先依 README 完成資料庫初始化。");
             }
         }
     }
@@ -65,12 +65,12 @@ public sealed class DatabaseFixture : IAsyncLifetime
 }
 
 /// <summary>
-/// 僅在明確啟用一般資料庫測試時執行，不包含重建授權。
+/// 已設定 API 共用連線即可執行一般資料庫測試，不包含重建授權。
 /// </summary>
 public sealed class DatabaseFactAttribute : FactAttribute
 {
     /// <summary>
-    /// 判斷是否已設定一般測試旗標及 API 共用連線。
+    /// 判斷是否已設定 API 共用連線。
     /// </summary>
     public static bool IsEnabled => DatabaseTestConfiguration.IsEnabled;
 
@@ -81,7 +81,7 @@ public sealed class DatabaseFactAttribute : FactAttribute
     {
         if (!IsEnabled)
         {
-            Skip = "資料庫測試需設定 KGI_RUN_DB_TESTS=1，並沿用 API 的 ConnectionStrings:Kgi；測試不會重建 KGI。";
+            Skip = "資料庫測試需設定 Kgi.Api/appsettings.json 的 ConnectionStrings:Kgi；測試不會重建 KGI。";
         }
     }
 }

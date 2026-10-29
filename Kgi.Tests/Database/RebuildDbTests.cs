@@ -20,6 +20,10 @@ public sealed class RebuildDbTests
     /// <summary>
     /// 明確授權後重建 Q1、Q2、Q3、Q4，核對初始數量、公司部位、歷史快照與股利控制總額。
     /// </summary>
+    /// <remarks>
+    /// 只有此測試需要重建開關：在測試執行環境設定 KGI_ALLOW_DB_REBUILD=1。
+    /// 連線沿用 Kgi.Api/appsettings.json 的 ConnectionStrings:Kgi；執行會清空既有資料，完成後請移除開關。
+    /// </remarks>
     [DestructiveDatabaseFact]
     public async Task RebuildDb()
     {
