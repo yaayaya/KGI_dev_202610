@@ -13,7 +13,7 @@ public sealed class InterestService(InterestDao dao, IConfiguration configuratio
     private const int ChunkSize = 200;
 
     /// <summary>
-    /// 結算功能是否已由維運明確啟用；停用時 HTTP 入口不讀取資料庫。
+    /// 結算功能依應用程式設定預設啟用；明確停用時 HTTP 入口不讀取資料庫。
     /// </summary>
     public bool IsEnabled { get; } = configuration.GetValue<bool>("InterestSettlement:Enabled");
 

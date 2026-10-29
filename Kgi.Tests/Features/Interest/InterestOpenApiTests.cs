@@ -1,18 +1,21 @@
 using System.Net;
 using System.Text.Json;
+using Kgi.Api.Features.Interest;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Kgi.Tests.Features.Interest;
 
 /// <summary>
-/// 不連接資料庫，驗證 Q3 未啟用保護及前端產碼所依賴的金融契約。
+/// 不連接資料庫，驗證 Q3 明確停用時的保護及前端產碼所依賴的金融契約。
 /// </summary>
 public sealed class InterestOpenApiTests
 {
     /// <summary>
-    /// 功能未啟用時，查詢與啟動皆回 503，且保留 Q1/Q2 契約與原入口。
+    /// 明確停用功能時，查詢與啟動皆回 503，且保留 Q1/Q2 契約與原入口。
     /// </summary>
     [Fact]
     public async Task DisabledFeatureDoesNotAccessDatabaseAndPreservesOpenApiContract()
@@ -20,6 +23,7 @@ public sealed class InterestOpenApiTests
         await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Development");
+            builder.UseSetting("InterestSettlement:Enabled", "false");
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>
                 {
@@ -28,6 +32,7 @@ public sealed class InterestOpenApiTests
                 }));
         });
         using var client = factory.CreateClient();
+        Assert.DoesNotContain(factory.Services.GetServices<IHostedService>(), service => service is InterestSettlementWorker);
         using var list = await client.GetAsync("/api/interest/batches");
         using var detail = await client.GetAsync("/api/interest/batches/TEST");
         using var start = await client.PostAsync("/api/interest/batches/TEST/settlement", null);

@@ -1,3 +1,4 @@
+using System.Reflection;
 using Kgi.Api.Data;
 using Kgi.Api.Exceptions;
 using Kgi.Api.Extensions;
@@ -27,7 +28,9 @@ builder.Services.AddScoped<StockAffairsDao>();
 builder.Services.AddScoped<StockAffairsService>();
 builder.Services.AddScoped<InterestDao>();
 builder.Services.AddScoped<InterestService>();
-if (builder.Configuration.GetValue<bool>("InterestSettlement:Enabled"))
+// OpenAPI 建置產碼也會啟動主機，但不應連線資料庫或處理結算批次。
+if (builder.Configuration.GetValue<bool>("InterestSettlement:Enabled") &&
+    Assembly.GetEntryAssembly()?.GetName().Name != "GetDocument.Insider")
 {
     builder.Services.AddHostedService<InterestSettlementWorker>();
 }
@@ -45,7 +48,7 @@ app.MapControllers();
 app.Run();
 
 /// <summary>
-/// API 啟動入口，註冊權證、借券、結算與股務服務；只有明確啟用時才啟動背景結算。
+/// API 啟動入口，註冊四項功能；背景結算預設啟用，僅處理已由 API 受理的批次。
 /// </summary>
 public partial class Program
 {
