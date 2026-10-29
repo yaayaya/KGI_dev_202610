@@ -1,6 +1,7 @@
 using Kgi.Api.Data;
 using Kgi.Api.Exceptions;
 using Kgi.Api.Extensions;
+using Kgi.Api.Features.Interest;
 using Kgi.Api.Features.Lending;
 using Kgi.Api.Features.Warrants;
 using Microsoft.OpenApi;
@@ -21,6 +22,12 @@ builder.Services.AddScoped<WarrantService>();
 builder.Services.AddScoped<LendingDao>();
 builder.Services.AddScoped<LendingService>();
 builder.Services.AddSingleton<MarketPriceCsvParser>();
+builder.Services.AddScoped<InterestDao>();
+builder.Services.AddScoped<InterestService>();
+if (builder.Configuration.GetValue<bool>("InterestSettlement:Enabled"))
+{
+    builder.Services.AddHostedService<InterestSettlementWorker>();
+}
 
 var app = builder.Build();
 
@@ -35,7 +42,7 @@ app.MapControllers();
 app.Run();
 
 /// <summary>
-/// API 啟動入口，註冊權證與借券服務、資料庫存取及共用例外處理。
+/// API 啟動入口，註冊權證、借券及結算服務；只有明確啟用時才啟動背景結算。
 /// </summary>
 public partial class Program
 {

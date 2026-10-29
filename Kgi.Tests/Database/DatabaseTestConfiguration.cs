@@ -4,27 +4,27 @@ using Microsoft.Extensions.Configuration;
 namespace Kgi.Tests.Database;
 
 /// <summary>
-/// 集中讀取資料庫測試設定，依序支援環境變數與 appsettings.Development.json。
+/// 資料庫測試沿用 API 的 Kgi 連線，僅在明確啟用時使用單一 KGI 資料庫。
 /// </summary>
 public static class DatabaseTestConfiguration
 {
     private static readonly Lazy<string?> LazyConnectionString = new(ResolveConnectionString);
-    private static readonly Lazy<bool> LazyAllowDbRebuild = new(ResolveAllowDbRebuild);
+    private static readonly Lazy<bool> LazyRunDatabaseTests = new(ResolveRunDatabaseTests);
 
     /// <summary>
-    /// 取得 KGI_Test 連線字串；若尚未設定環境變數，會從設定檔載入並回填環境變數。
+    /// 沿用 API 的 ConnectionStrings:Kgi，不另行切換資料庫或維護測試連線。
     /// </summary>
     public static string? ConnectionString => LazyConnectionString.Value;
 
     /// <summary>
-    /// 判斷是否允許重建測試資料庫；若由設定檔啟用，會同步回填環境變數。
+    /// 判斷是否明確允許建立及清理本次測試擁有的資料；不允許自動重建資料庫。
     /// </summary>
-    public static bool AllowDbRebuild => LazyAllowDbRebuild.Value;
+    public static bool RunDatabaseTests => LazyRunDatabaseTests.Value;
 
     /// <summary>
     /// 判斷資料庫測試是否具備執行條件。
     /// </summary>
-    public static bool IsEnabled => AllowDbRebuild && !string.IsNullOrWhiteSpace(ConnectionString);
+    public static bool IsEnabled => RunDatabaseTests && !string.IsNullOrWhiteSpace(ConnectionString);
 
     private static IConfiguration LoadConfiguration()
     {
@@ -53,62 +53,32 @@ public static class DatabaseTestConfiguration
             currentDir = currentDir.Parent;
         }
 
+        // 與 API 共用同一個 UserSecretsId，環境變數仍具有最高優先序。
+        builder.AddUserSecrets(typeof(Program).Assembly, optional: true);
         builder.AddEnvironmentVariables();
         return builder.Build();
     }
 
     private static string? ResolveConnectionString()
     {
-        var envValue = Environment.GetEnvironmentVariable("KGI_TEST_CONNECTION_STRING");
-        if (!string.IsNullOrWhiteSpace(envValue))
-        {
-            return envValue;
-        }
-
         var configuration = LoadConfiguration();
-        var connectionString = configuration.GetConnectionString("KgiTest")
-            ?? configuration.GetConnectionString("KGI_TEST_CONNECTION_STRING")
-            ?? configuration["KGI_TEST_CONNECTION_STRING"];
-
-        if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            var defaultConnection = configuration.GetConnectionString("Kgi");
-            if (!string.IsNullOrWhiteSpace(defaultConnection))
-            {
-                var builder = new SqlConnectionStringBuilder(defaultConnection)
-                {
-                    InitialCatalog = "KGI_Test"
-                };
-                connectionString = builder.ConnectionString;
-            }
-        }
+        var connectionString = configuration.GetConnectionString("Kgi");
 
         if (!string.IsNullOrWhiteSpace(connectionString))
         {
-            Environment.SetEnvironmentVariable("KGI_TEST_CONNECTION_STRING", connectionString);
+            var databaseName = new SqlConnectionStringBuilder(connectionString).InitialCatalog;
+            if (!string.Equals(databaseName, "KGI", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("本版本僅使用 KGI，請將 ConnectionStrings:Kgi 的 Database 設為 KGI。");
+            }
         }
 
         return connectionString;
     }
 
-    private static bool ResolveAllowDbRebuild()
+    private static bool ResolveRunDatabaseTests()
     {
-        var envValue = Environment.GetEnvironmentVariable("KGI_ALLOW_DB_REBUILD");
-        if (!string.IsNullOrWhiteSpace(envValue))
-        {
-            return envValue == "1" || envValue.Equals("true", StringComparison.OrdinalIgnoreCase);
-        }
-
-        var configuration = LoadConfiguration();
-        var value = configuration["KGI_ALLOW_DB_REBUILD"]
-            ?? configuration["AllowDbRebuild"];
-
-        var isAllowed = value == "1" || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
-        if (isAllowed)
-        {
-            Environment.SetEnvironmentVariable("KGI_ALLOW_DB_REBUILD", "1");
-        }
-
-        return isAllowed;
+        var value = LoadConfiguration()["KGI_RUN_DB_TESTS"];
+        return value == "1" || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
     }
 }

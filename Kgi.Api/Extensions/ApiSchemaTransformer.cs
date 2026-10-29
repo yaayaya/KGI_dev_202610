@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Kgi.Api.Features.Interest;
 using Kgi.Api.Features.Lending;
 using Kgi.Api.Features.Warrants;
 using Microsoft.AspNetCore.OpenApi;
@@ -20,7 +21,8 @@ public sealed class ApiSchemaTransformer : IOpenApiSchemaTransformer
         var type = context.JsonTypeInfo.Type;
         if (schema.Properties is null ||
             (type != typeof(TrialRequest) && type != typeof(WarrantResponse) && type != typeof(TrialResponse)
-             && type != typeof(LendingMonitorResponse) && type != typeof(LendingContractResponse) && type != typeof(LendingImportResponse)))
+             && type != typeof(LendingMonitorResponse) && type != typeof(LendingContractResponse) && type != typeof(LendingImportResponse)
+             && type != typeof(InterestBatchResponse) && type != typeof(InterestBatchDetailResponse) && type != typeof(InterestDetailResponse)))
         {
             return Task.CompletedTask;
         }
@@ -83,6 +85,30 @@ public sealed class ApiSchemaTransformer : IOpenApiSchemaTransformer
         else if (type == typeof(LendingImportResponse))
         {
             SetInteger(schema, "importedCount");
+        }
+        else if (type == typeof(InterestBatchResponse))
+        {
+            schema.Properties["processStatus"] = new OpenApiSchema
+            {
+                Type = JsonSchemaType.Integer,
+                Format = "int32",
+                Enum = [JsonValue.Create(0), JsonValue.Create(1), JsonValue.Create(2), JsonValue.Create(9)],
+                Description = "批次狀態：0 待處理、1 處理中、2 成功、9 失敗。"
+            };
+            SetInteger(schema, "progressRate");
+            foreach (var property in new[] { "startedTime", "finishedTime" })
+            {
+                schema.Properties[property] = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.String | JsonSchemaType.Null,
+                    Format = "date-time",
+                    Description = "UTC ISO 8601 時間；尚未開始或結束時為 null。"
+                };
+            }
+        }
+        else if (type == typeof(InterestDetailResponse))
+        {
+            SetInteger(schema, "detailId");
         }
 
         return Task.CompletedTask;

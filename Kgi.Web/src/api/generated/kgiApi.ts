@@ -6,6 +6,8 @@ import type {
   GetLendingMonitorParams,
   GetWarrantsParams,
   ImportMarketPricesBody,
+  InterestBatchDetailResponse,
+  InterestBatchResponse,
   LendingImportResponse,
   LendingMonitorResponse,
   TrialRequest,
@@ -109,9 +111,49 @@ export const importMarketPrices = (
   );
 };
 
+/**
+ * @summary 取得全部結算批次的已提交狀態與進度。
+ */
+export const getInterestBatches = (
+  options?: SecondParameter<typeof request<InterestBatchResponse[]>>,
+) => {
+  return request<InterestBatchResponse[]>({ url: `/api/interest/batches`, method: 'GET' }, options);
+};
+
+/**
+ * @summary 取得單批狀態及已提交的明細，處理中不讀取帳務明細。
+ */
+export const getInterestBatch = (
+  id: string,
+  options?: SecondParameter<typeof request<InterestBatchDetailResponse>>,
+) => {
+  return request<InterestBatchDetailResponse>(
+    { url: `/api/interest/batches/${id}`, method: 'GET' },
+    options,
+  );
+};
+
+/**
+ * @summary 原子受理待處理批次並立即回傳 202；帳務由背景工作處理，不隨 HTTP 中斷取消。
+ */
+export const startInterestSettlement = (
+  id: string,
+  options?: SecondParameter<typeof request<InterestBatchResponse>>,
+) => {
+  return request<InterestBatchResponse>(
+    { url: `/api/interest/batches/${id}/settlement`, method: 'POST' },
+    options,
+  );
+};
+
 export type GetWarrantsResult = NonNullable<Awaited<ReturnType<typeof getWarrants>>>;
 export type PreviewWarrantResult = NonNullable<Awaited<ReturnType<typeof previewWarrant>>>;
 export type SaveWarrantTrialResult = NonNullable<Awaited<ReturnType<typeof saveWarrantTrial>>>;
 export type GetWarrantTrialsResult = NonNullable<Awaited<ReturnType<typeof getWarrantTrials>>>;
 export type GetLendingMonitorResult = NonNullable<Awaited<ReturnType<typeof getLendingMonitor>>>;
 export type ImportMarketPricesResult = NonNullable<Awaited<ReturnType<typeof importMarketPrices>>>;
+export type GetInterestBatchesResult = NonNullable<Awaited<ReturnType<typeof getInterestBatches>>>;
+export type GetInterestBatchResult = NonNullable<Awaited<ReturnType<typeof getInterestBatch>>>;
+export type StartInterestSettlementResult = NonNullable<
+  Awaited<ReturnType<typeof startInterestSettlement>>
+>;

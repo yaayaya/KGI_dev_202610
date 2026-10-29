@@ -16,7 +16,7 @@ using Microsoft.Extensions.Configuration;
 namespace Kgi.Tests.Features.Lending;
 
 /// <summary>
-/// 在明確啟用的 KGI_Test 中驗證批次匯入、SQL 維持率與 Q1 資料隔離。
+/// 在單一 KGI 中驗證批次匯入、SQL 維持率與 Q1 資料隔離，只清理測試自建的資料。
 /// </summary>
 [Collection("Database")]
 [Trait("Category", "Database")]
@@ -34,15 +34,14 @@ public sealed class LendingApiTests(DatabaseFixture database)
     [DatabaseFact]
     public async Task MissingPricesRemainUnpricedInsteadOfNormal()
     {
-        var date = new DateTime(2026, 4, 24);
-        await DeletePricesAsync(date);
+        var date = await FindUnusedTradeDateAsync();
         await using var factory = CreateFactory();
         using var client = factory.CreateClient();
 
         var monitor = await GetMonitorAsync(client, date);
 
-        Assert.Equal(1000, monitor.TotalCount);
-        Assert.Equal(1000, monitor.UnpricedCount);
+        Assert.True(monitor.TotalCount >= 1000, "既有合約至少須包含一千筆示範資料。");
+        Assert.Equal(monitor.TotalCount, monitor.UnpricedCount);
         Assert.Equal(0, monitor.NormalCount + monitor.WarningCount + monitor.CallCount);
         Assert.All(monitor.Contracts, contract =>
         {
@@ -58,21 +57,22 @@ public sealed class LendingApiTests(DatabaseFixture database)
     [DatabaseFact]
     public async Task ImportCalculatesAllContractsAndPreservesUnroundedStatusBoundaries()
     {
-        var date = new DateTime(2026, 4, 25);
+        var date = await FindUnusedTradeDateAsync();
+        var stockIds = await GetStockIdsAsync();
         try
         {
             await using var factory = CreateFactory();
             using var client = factory.CreateClient();
-            using var imported = await ImportAsync(client, CreateCsv(date));
+            using var imported = await ImportAsync(client, CreateCsv(date, stocks: stockIds));
             Assert.Equal(HttpStatusCode.OK, imported.StatusCode);
             var result = Assert.IsType<LendingImportResponse>(
                 await imported.Content.ReadFromJsonAsync<LendingImportResponse>());
-            Assert.Equal("2026-04-25", result.TradeDate);
-            Assert.Equal(20, result.ImportedCount);
+            Assert.Equal(date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), result.TradeDate);
+            Assert.Equal(stockIds.Length, result.ImportedCount);
 
             var monitor = await GetMonitorAsync(client, date);
-            Assert.Equal(1000, monitor.TotalCount);
-            Assert.Equal(1000, monitor.Contracts.Count);
+            Assert.True(monitor.TotalCount >= 1000, "既有合約至少須包含一千筆示範資料。");
+            Assert.Equal(monitor.TotalCount, monitor.Contracts.Count);
             Assert.True(monitor.NormalCount > 0, "合成合約應包含正常情境。");
             Assert.True(monitor.WarningCount > 0, "合成合約應包含預警情境。");
             Assert.True(monitor.CallCount > 0, "合成合約應包含處置情境。");
@@ -100,7 +100,7 @@ public sealed class LendingApiTests(DatabaseFixture database)
             // Q2 行情匯入不得更動既有 Q1 權證資料。
             var warrants = Assert.IsType<List<WarrantResponse>>(
                 await client.GetFromJsonAsync<List<WarrantResponse>>("/api/warrants"));
-            Assert.Equal(800, warrants.Count);
+            Assert.True(warrants.Count >= 800, "既有權證至少須包含八百筆示範資料。");
             Assert.Equal("100.0000", Assert.Single(warrants, row => row.WarrantId == "03001C").StrikePrice);
         }
         finally
@@ -115,29 +115,32 @@ public sealed class LendingApiTests(DatabaseFixture database)
     [DatabaseFact]
     public async Task ReimportReplacesWholeDayWithoutDuplicatingOrTouchingOtherDates()
     {
-        var date = new DateTime(2026, 4, 26);
-        var otherDate = new DateTime(2026, 4, 27);
+        var date = await FindUnusedTradeDateAsync();
+        var otherDate = await FindUnusedTradeDateAsync(date.AddDays(1));
+        var stockIds = await GetStockIdsAsync();
+        var extraStockId = $"Q2{Guid.NewGuid():N}"[..10];
         try
         {
             await using var factory = CreateFactory();
             using var client = factory.CreateClient();
-            using var first = await ImportAsync(client, CreateCsv(date) + "9999,100.0000,20260426\n");
+            using var first = await ImportAsync(client, CreateCsv(date, stocks: stockIds)
+                + $"{extraStockId},100.0000,{date.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}\n");
             first.EnsureSuccessStatusCode();
             var before = await GetMonitorAsync(client, date);
             Assert.Equal("Normal", Assert.Single(before.Contracts,
                 row => row.ContractNo == "CT2026000005").Status);
-            using var other = await ImportAsync(client, CreateCsv(otherDate, 90m));
+            using var other = await ImportAsync(client, CreateCsv(otherDate, 90m, stockIds));
             other.EnsureSuccessStatusCode();
-            using var replaced = await ImportAsync(client, CreateCsv(date, 200m));
+            using var replaced = await ImportAsync(client, CreateCsv(date, 200m, stockIds));
             replaced.EnsureSuccessStatusCode();
-            using var repeated = await ImportAsync(client, CreateCsv(date, 200m));
+            using var repeated = await ImportAsync(client, CreateCsv(date, 200m, stockIds));
             repeated.EnsureSuccessStatusCode();
 
             var currentPrices = await GetPricesAsync(date);
-            Assert.Equal(20, currentPrices.Count);
+            Assert.Equal(stockIds.Length, currentPrices.Count);
             Assert.All(currentPrices, price => Assert.Equal(200m, price));
             var unchangedPrices = await GetPricesAsync(otherDate);
-            Assert.Equal(20, unchangedPrices.Count);
+            Assert.Equal(stockIds.Length, unchangedPrices.Count);
             Assert.All(unchangedPrices, price => Assert.Equal(90m, price));
 
             var monitor = await GetMonitorAsync(client, date);
@@ -160,25 +163,27 @@ public sealed class LendingApiTests(DatabaseFixture database)
     [DatabaseFact]
     public async Task RejectedFileDoesNotLeavePartialWritesOrDeleteExistingPrices()
     {
-        var date = new DateTime(2026, 4, 28);
+        var date = await FindUnusedTradeDateAsync();
+        var stockIds = await GetStockIdsAsync();
         try
         {
             await using var factory = CreateFactory();
             using var client = factory.CreateClient();
-            using var initial = await ImportAsync(client, CreateCsv(date));
+            using var initial = await ImportAsync(client, CreateCsv(date, stocks: stockIds));
             initial.EnsureSuccessStatusCode();
 
             var invalidFiles = new[]
             {
-                CreateCsv(date, 200m, StockIds.Skip(1)),
-                CreateCsv(date, 200m) + "9999,0,20260428\n"
+                CreateCsv(date, 200m, stockIds.Skip(1)),
+                CreateCsv(date, 200m, stockIds)
+                    + $"9999,0,{date.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}\n"
             };
             foreach (var csv in invalidFiles)
             {
                 using var rejected = await ImportAsync(client, csv);
                 await AssertBadRequestAsync(rejected);
                 var prices = await GetPricesAsync(date);
-                Assert.Equal(20, prices.Count);
+                Assert.Equal(stockIds.Length, prices.Count);
                 Assert.All(prices, price => Assert.Equal(100m, price));
             }
         }
@@ -194,14 +199,15 @@ public sealed class LendingApiTests(DatabaseFixture database)
     [DatabaseFact]
     public async Task ConcurrentImportsKeepOneCompleteSetForTheTradeDate()
     {
-        var date = new DateTime(2026, 4, 29);
+        var date = await FindUnusedTradeDateAsync();
+        var stockIds = await GetStockIdsAsync();
         try
         {
             await using var factory = CreateFactory();
             using var client = factory.CreateClient();
             var responses = await Task.WhenAll(
-                ImportAsync(client, CreateCsv(date, 100m)),
-                ImportAsync(client, CreateCsv(date, 200m)));
+                ImportAsync(client, CreateCsv(date, 100m, stockIds)),
+                ImportAsync(client, CreateCsv(date, 200m, stockIds)));
             foreach (var response in responses)
             {
                 using (response)
@@ -211,7 +217,7 @@ public sealed class LendingApiTests(DatabaseFixture database)
             }
 
             var prices = await GetPricesAsync(date);
-            Assert.Equal(20, prices.Count);
+            Assert.Equal(stockIds.Length, prices.Count);
             Assert.Single(prices.Distinct());
             Assert.Contains(prices[0], new[] { 100m, 200m });
         }
@@ -227,9 +233,11 @@ public sealed class LendingApiTests(DatabaseFixture database)
     [DatabaseFact]
     public async Task ExtremeQuantityAndNearHalfCentRatioKeepCorrectDecimalResults()
     {
-        var date = new DateTime(2026, 4, 30);
-        const string contractNo = "Q2_INT_MAX";
-        const string roundingContractNo = "Q2_ROUNDING";
+        var date = await FindUnusedTradeDateAsync();
+        var stockIds = await GetStockIdsAsync();
+        var contractNo = $"Q2M{Guid.NewGuid():N}"[..20];
+        var roundingContractNo = $"Q2R{Guid.NewGuid():N}"[..20];
+        var contractsInserted = false;
         try
         {
             await using (var connection = CreateConnection())
@@ -247,11 +255,12 @@ public sealed class LendingApiTests(DatabaseFixture database)
                     VALUES (@ContractNo, @StockId, @Quantity, @Collateral),
                         (@RoundingContractNo, @StockId, 25, @RoundingCollateral);
                     """, parameters));
+                contractsInserted = true;
             }
 
             await using var factory = CreateFactory();
             using var client = factory.CreateClient();
-            using var imported = await ImportAsync(client, CreateCsv(date));
+            using var imported = await ImportAsync(client, CreateCsv(date, stocks: stockIds));
             imported.EnsureSuccessStatusCode();
             var monitor = await GetMonitorAsync(client, date);
             var contract = Assert.Single(monitor.Contracts, row => row.ContractNo == contractNo);
@@ -265,14 +274,17 @@ public sealed class LendingApiTests(DatabaseFixture database)
         }
         finally
         {
-            await using var connection = CreateConnection();
-            await connection.ExecuteAsync(new CommandDefinition(
-                "DELETE FROM dbo.Lending_Contract WHERE Contract_No IN @ContractNos;",
-                new
-                {
-                    ContractNos = new[] { contractNo, roundingContractNo }
-                        .Select(value => new DbString { Value = value, IsAnsi = true, Length = 20 }).ToArray()
-                }));
+            if (contractsInserted)
+            {
+                await using var connection = CreateConnection();
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "DELETE FROM dbo.Lending_Contract WHERE Contract_No IN @ContractNos;",
+                    new
+                    {
+                        ContractNos = new[] { contractNo, roundingContractNo }
+                            .Select(value => new DbString { Value = value, IsAnsi = true, Length = 20 }).ToArray()
+                    }));
+            }
             await DeletePricesAsync(date);
         }
     }
@@ -293,16 +305,54 @@ public sealed class LendingApiTests(DatabaseFixture database)
     }
 
     /// <summary>
-    /// 建立只連向 fixture 指定 KGI_Test 的 API 測試主機。
+    /// 建立連向 API 同一個 KGI 的測試主機，停用 Q3 背景結算以避免影響既有批次。
     /// </summary>
     private WebApplicationFactory<Program> CreateFactory() => new WebApplicationFactory<Program>()
         .WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Development");
             builder.UseSetting("ConnectionStrings:Kgi", database.ConnectionString);
+            builder.UseSetting("InterestSettlement:Enabled", "false");
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
-                new Dictionary<string, string?> { ["ConnectionStrings:Kgi"] = database.ConnectionString }));
+                new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:Kgi"] = database.ConnectionString,
+                    ["InterestSettlement:Enabled"] = "false"
+                }));
         });
+
+    /// <summary>
+    /// 逐日尋找沒有行情的遠期交易日，不刪除或覆寫 KGI 中任何既有日期。
+    /// </summary>
+    private async Task<DateTime> FindUnusedTradeDateAsync(DateTime? startDate = null)
+    {
+        await using var connection = CreateConnection();
+        for (var date = startDate ?? new DateTime(9990, 1, 1); date < new DateTime(9991, 1, 1); date = date.AddDays(1))
+        {
+            var parameters = new DynamicParameters();
+            parameters.Add("TradeDate", date, DbType.Date);
+            var exists = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+                "SELECT CASE WHEN EXISTS (SELECT 1 FROM dbo.Market_Price WHERE Trade_Date = @TradeDate) THEN 1 ELSE 0 END;",
+                parameters));
+            if (exists == 0)
+            {
+                return date;
+            }
+        }
+
+        throw new InvalidOperationException("9990 年已無未使用的測試交易日，未變更任何既有行情。");
+    }
+
+    /// <summary>
+    /// 示範標的加上既有額外合約標的，確保測試匯入完整覆蓋單一 KGI 的合約。
+    /// </summary>
+    private async Task<string[]> GetStockIdsAsync()
+    {
+        await using var connection = CreateConnection();
+        var stockIds = await connection.QueryAsync<string>(new CommandDefinition(
+            "SELECT DISTINCT Stock_ID FROM dbo.Lending_Contract ORDER BY Stock_ID;"));
+        return StockIds.Concat(stockIds).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
 
     /// <summary>
     /// 建立特定交易日的完整行情，日期及價格以固定格式輸出。
@@ -356,7 +406,7 @@ public sealed class LendingApiTests(DatabaseFixture database)
     }
 
     /// <summary>
-    /// 只清理各測試明確擁有的日期，保留其他測試及 Q1 資料。
+    /// 只清理各測試先確認為空的自用日期，保留 KGI 原有行情與 Q1 資料。
     /// </summary>
     private async Task DeletePricesAsync(params DateTime[] dates)
     {
@@ -366,7 +416,7 @@ public sealed class LendingApiTests(DatabaseFixture database)
     }
 
     /// <summary>
-    /// 建立獨立的測試資料庫連線，不跨測試共用已開啟連線。
+    /// 建立單一 KGI 的獨立連線，不跨測試共用已開啟連線。
     /// </summary>
     private SqlConnection CreateConnection() => new(database.ConnectionString);
 
