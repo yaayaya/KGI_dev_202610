@@ -19,10 +19,12 @@ public sealed class LendingOpenApiTests
         await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Development");
+            builder.UseSetting("InterestSettlement:Enabled", "false");
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>
                 {
-                    ["ConnectionStrings:Kgi"] = "Server=127.0.0.1,1;Database=KGI_Test;Integrated Security=True;Connect Timeout=1;"
+                    ["ConnectionStrings:Kgi"] = "Server=127.0.0.1,1;Database=KGI;Integrated Security=True;Connect Timeout=1;",
+                    ["InterestSettlement:Enabled"] = "false"
                 }));
         });
         using var client = factory.CreateClient();

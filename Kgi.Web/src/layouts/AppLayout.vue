@@ -6,6 +6,7 @@ import {
   Calculator,
   ChartNoAxesCombined,
   ChevronRight,
+  ListChecks,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
@@ -125,6 +126,22 @@ watch(isDesktop, (desktop) => {
                 >借券維持率監控</span
               >
             </RouterLink>
+            <RouterLink
+              to="/interest"
+              class="mt-1 flex h-8 items-center gap-2 overflow-hidden rounded-md px-2.5 text-[13px] hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              :class="
+                route.name === 'interest'
+                  ? 'bg-accent font-medium text-accent-foreground'
+                  : 'text-muted-foreground'
+              "
+              aria-label="借券利息結算"
+              :title="collapsed ? '借券利息結算' : undefined"
+            >
+              <ListChecks class="size-4 shrink-0" aria-hidden="true" />
+              <span class="erp-sidebar-copy shrink-0 whitespace-nowrap" :aria-hidden="collapsed"
+                >借券利息結算</span
+              >
+            </RouterLink>
           </nav>
         </aside>
 
@@ -206,6 +223,15 @@ watch(isDesktop, (desktop) => {
           >
             <ChartNoAxesCombined class="size-4 shrink-0" aria-hidden="true" />
             借券維持率監控
+          </RouterLink>
+          <RouterLink
+            to="/interest"
+            class="mt-1 flex min-h-10 items-center gap-2 rounded-md px-2 text-[13px] hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            active-class="bg-accent font-medium text-accent-foreground"
+            @click="mobileOpen = false"
+          >
+            <ListChecks class="size-4 shrink-0" aria-hidden="true" />
+            借券利息結算
           </RouterLink>
         </nav>
       </DialogContent>

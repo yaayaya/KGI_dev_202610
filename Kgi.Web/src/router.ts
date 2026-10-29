@@ -42,6 +42,12 @@ export const router = createRouter({
       component: () => import('./features/lending/LendingPage.vue'),
       meta: { title: '借券維持率監控' },
     },
+    {
+      path: '/interest',
+      name: 'interest',
+      component: () => import('./features/interest/InterestPage.vue'),
+      meta: { title: '借券利息結算' },
+    },
     // 最後才處理未匹配的路徑，避免攔截已登記的功能頁。
     {
       path: '/:pathMatch(.*)*',

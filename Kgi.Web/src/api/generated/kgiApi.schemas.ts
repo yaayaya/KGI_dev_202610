@@ -5,6 +5,75 @@
 export type IFormFile = Blob;
 
 /**
+ * 批次狀態：0 待處理、1 處理中、2 成功、9 失敗。
+ */
+export type InterestBatchResponseProcessStatus =
+  (typeof InterestBatchResponseProcessStatus)[keyof typeof InterestBatchResponseProcessStatus];
+
+export const InterestBatchResponseProcessStatus = {
+  NUMBER_0: 0,
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+  NUMBER_9: 9,
+} as const;
+
+/**
+ * 利息批次的監控快照，金額以四位小數字串傳輸。
+ */
+export interface InterestBatchResponse {
+  /** 批次編號，最多二十個字元。 */
+  batchId: string;
+  /** 預計總額（元），固定四位小數，獨立於本次計算結果。 */
+  expectedAmt: string;
+  /** 批次狀態：0 待處理、1 處理中、2 成功、9 失敗。 */
+  processStatus: InterestBatchResponseProcessStatus;
+  /** 處理進度（0–100）；只有成功提交後為 100。 */
+  progressRate: number;
+  /**
+   * UTC ISO 8601 時間；尚未開始或結束時為 null。
+   * @nullable
+   */
+  startedTime: string | null;
+  /**
+   * UTC ISO 8601 時間；尚未開始或結束時為 null。
+   * @nullable
+   */
+  finishedTime: string | null;
+  /**
+   * 可呈現的失敗日誌；沒有失敗時為 null，不含連線或系統機密。
+   * @nullable
+   */
+  errorMessage: string | null;
+}
+
+/**
+ * 已提交的單筆合約利息。
+ */
+export interface InterestDetailResponse {
+  /** 明細流水號，為資料庫自動產生的正整數。 */
+  detailId: number;
+  /** 此批來源快照的合約編號，最多二十個字元。 */
+  contractNo: string;
+  /** 該合約的當日利息（元），固定四位小數。 */
+  dailyInterest: string;
+}
+
+/**
+ * 選定批次的監控快照及已提交明細；處理中不讀取未提交帳務。
+ */
+export interface InterestBatchDetailResponse {
+  /** 本次查詢的批次狀態。 */
+  batch: InterestBatchResponse;
+  /**
+   * 已提交明細總額（元），固定四位小數；未成功時為 null。
+   * @nullable
+   */
+  calculatedAmt: string | null;
+  /** 已成功提交的合約利息明細；未成功時為空集合。 */
+  details: InterestDetailResponse[];
+}
+
+/**
  * 監控狀態：Normal 正常、Warning 預警、Call 處置、Unpriced 尚無價格。
  */
 export type LendingContractResponseStatus =
