@@ -38,35 +38,15 @@ public static class DatabaseTestConfiguration
     /// </summary>
     public static bool IsEnabled => RunDatabaseTests && !string.IsNullOrWhiteSpace(ConnectionString);
 
+    /// <summary>
+    /// 載入 API 隨建置複製的設定檔，保留 .NET 的環境變數覆寫方式，不維護另一份測試連線。
+    /// </summary>
     private static IConfiguration LoadConfiguration()
     {
         var builder = new ConfigurationBuilder();
         builder.SetBasePath(AppContext.BaseDirectory);
-        builder.AddJsonFile("appsettings.json", optional: true);
+        builder.AddJsonFile("appsettings.json", optional: false);
         builder.AddJsonFile("appsettings.Development.json", optional: true);
-
-        var currentDir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (currentDir != null)
-        {
-            var apiDevJson = Path.Combine(currentDir.FullName, "Kgi.Api", "appsettings.Development.json");
-            if (File.Exists(apiDevJson))
-            {
-                builder.AddJsonFile(apiDevJson, optional: true);
-                break;
-            }
-
-            var rootDevJson = Path.Combine(currentDir.FullName, "appsettings.Development.json");
-            if (File.Exists(rootDevJson))
-            {
-                builder.AddJsonFile(rootDevJson, optional: true);
-                break;
-            }
-
-            currentDir = currentDir.Parent;
-        }
-
-        // 與 API 共用同一個 UserSecretsId，環境變數仍具有最高優先序。
-        builder.AddUserSecrets(typeof(Program).Assembly, optional: true);
         builder.AddEnvironmentVariables();
         return builder.Build();
     }

@@ -5,7 +5,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
-    <UserSecretsId>kgi-local-development</UserSecretsId>
     <OpenApiGenerateDocumentsOnBuild>true</OpenApiGenerateDocumentsOnBuild>
     <OpenApiDocumentsDirectory>$(MSBuildProjectDirectory)/openapi</OpenApiDocumentsDirectory>
     <OpenApiGenerateDocumentsOptions>--document-name v1 --openapi-version OpenApi3_1</OpenApiGenerateDocumentsOptions>

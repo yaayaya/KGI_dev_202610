@@ -31,7 +31,7 @@ description: 開發 KGI 的 .NET API、DAO、Dapper／SQL 或後端測試時使�
 - Dao 每次操作以 `await using` 管理連線，`OpenAsync` 與 Dapper `CommandDefinition` 傳遞 `CancellationToken`；需原子性的多步操作，在同一 Dao 方法內使用同一連線與明確交易。
 - DB First 的結構來源為 `Kgi.Tests/Database/Scripts/InitTestDb/`；結構變更同步 SQL、POCO、Dao 與 DTO。表及欄位透過 `MS_Description` 記錄繁中用途。
 - Controller 使用 `ActionResult<T>`，錯誤沿用 ProblemDetails，保留 Swagger UI；契約變更同步檢查 `ApiSchemaTransformer`、operationId、nullable 與金融字串，依 README 重產並版控 OpenAPI／Orval 產物。
-- 連線放 User Secrets／環境變數；API 與測試共用 `ConnectionStrings:Kgi` 及單一 `KGI`。API 啟動及一般 DB 測試不自動重建或清表；設定 `KGI_RUN_DB_TESTS=1` 才執行一般 DB 測試，只清理自行建立的資料。手動重建與全域行情重置測試分類為 `DatabaseReset`，另須明確設定 `KGI_ALLOW_DB_REBUILD=1`；跳過測試不代表通過。
+- 連線統一放在 `Kgi.Api/appsettings.json` 的 `ConnectionStrings:Kgi`，API 與測試透過 .NET 標準設定共用這一組連線及單一 `KGI`，不另設 User Secrets 或測試連線。API 啟動及一般 DB 測試不自動重建或清表；設定 `KGI_RUN_DB_TESTS=1` 才執行一般 DB 測試，只清理自行建立的資料。手動重建與全域行情重置測試分類為 `DatabaseReset`，另須明確設定 `KGI_ALLOW_DB_REBUILD=1`；跳過測試不代表通過。
 
 ## 資料庫異動與重建同步
 
