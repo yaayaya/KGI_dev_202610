@@ -61,9 +61,9 @@ function restoreFocus(event: Event) {
 <template>
   <AlertDialogRoot :open="open" @update:open="emit('update:open', $event)">
     <AlertDialogPortal>
-      <AlertDialogOverlay class="fixed inset-0 z-40 bg-foreground/30" />
+      <AlertDialogOverlay class="erp-dialog-overlay fixed inset-0 z-40 bg-foreground/30" />
       <AlertDialogContent
-        class="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-24px)] w-[min(420px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border bg-card p-4 text-card-foreground shadow-lg"
+        class="erp-dialog-content fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-24px)] w-[min(420px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border bg-card p-4 text-card-foreground shadow-lg"
         @close-auto-focus="restoreFocus"
       >
         <!-- 先說明本次寫入的影響，功能頁可補上已固定的操作摘要。 -->

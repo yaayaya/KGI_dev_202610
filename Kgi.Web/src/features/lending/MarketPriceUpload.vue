@@ -158,9 +158,9 @@ function onDrop(event: DragEvent) {
 
     <!-- 彈窗沿用 Reka 的焦點限制、Escape 與關閉後焦點還原；關閉不移除選檔。 -->
     <DialogPortal>
-      <DialogOverlay class="fixed inset-0 z-40 bg-foreground/30" />
+      <DialogOverlay class="erp-dialog-overlay fixed inset-0 z-40 bg-foreground/30" />
       <DialogContent
-        class="csv-preview-dialog fixed top-1/2 left-1/2 z-50 flex max-h-[85dvh] w-[min(640px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground shadow-lg"
+        class="erp-dialog-content fixed top-1/2 left-1/2 z-50 flex max-h-[85dvh] w-[min(640px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground shadow-lg"
       >
         <div class="flex items-center justify-between gap-3 border-b px-4 py-3">
           <DialogTitle class="text-sm font-semibold">CSV 行情預覽</DialogTitle>
@@ -215,23 +215,3 @@ function onDrop(event: DragEvent) {
     </DialogPortal>
   </DialogRoot>
 </template>
-
-<style scoped>
-/* 預覽視窗沿用短淡入，減少動態效果時直接顯示。 */
-.csv-preview-dialog {
-  animation: csv-preview-in 140ms ease-out;
-}
-@keyframes csv-preview-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .csv-preview-dialog {
-    animation: none;
-  }
-}
-</style>

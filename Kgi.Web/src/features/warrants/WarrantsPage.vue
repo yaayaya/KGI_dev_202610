@@ -107,7 +107,7 @@ function requestSave() {
  */
 async function confirmSave() {
   const snapshot = saveSnapshot.value;
-  saveSnapshot.value = null;
+  // 摘要保留到下次開窗，讓離場動畫期間仍顯示使用者剛確認的內容。
   if (
     !snapshot ||
     !canSave.value ||
