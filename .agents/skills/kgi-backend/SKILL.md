@@ -31,7 +31,13 @@ description: 開發 KGI 的 .NET API、DAO、Dapper／SQL 或後端測試時使�
 - Dao 每次操作以 `await using` 管理連線，`OpenAsync` 與 Dapper `CommandDefinition` 傳遞 `CancellationToken`；需原子性的多步操作，在同一 Dao 方法內使用同一連線與明確交易。
 - DB First 的結構來源為 `Kgi.Tests/Database/Scripts/InitTestDb/`；結構變更同步 SQL、POCO、Dao 與 DTO。表及欄位透過 `MS_Description` 記錄繁中用途。
 - Controller 使用 `ActionResult<T>`，錯誤沿用 ProblemDetails，保留 Swagger UI；契約變更同步檢查 `ApiSchemaTransformer`、operationId、nullable 與金融字串，依 README 重產並版控 OpenAPI／Orval 產物。
-- 連線放 User Secrets／環境變數；API 與 DB 測試共用 `ConnectionStrings:Kgi`，本版本僅使用 `KGI`。API 啟動及測試均不自動重建或清表；資料重建只限使用者明確授權的目標。設定 `KGI_RUN_DB_TESTS=1` 才執行 DB 測試，只建立及清理本次自有資料，保留既有部位、行情與結算；跳過測試不代表通過。
+- 連線放 User Secrets／環境變數；API 與測試共用 `ConnectionStrings:Kgi` 及單一 `KGI`。API 啟動及一般 DB 測試不自動重建或清表；設定 `KGI_RUN_DB_TESTS=1` 才執行一般 DB 測試，只清理自行建立的資料。手動重建與全域行情重置測試分類為 `DatabaseReset`，另須明確設定 `KGI_ALLOW_DB_REBUILD=1`；跳過測試不代表通過。
+
+## 資料庫異動與重建同步
+
+- 異動資料庫結構或預載資料時，同步維護 `Kgi.Tests/Database/Scripts/InitTestDb/` 與 [DBSCRIPT/Rebuild.sql](../../../DBSCRIPT/Rebuild.sql)，並調整受影響的測試。
+- 三份手寫來源修改後，執行 `pwsh DBSCRIPT/Generate-Rebuild.ps1` 同步產製 `Rebuild.sql`；產製不連線資料庫，不手改生成檔。
+- `Rebuild.sql` 可直接在 SSMS 執行；應用程式與測試初始化皆使用 `KGI`，重建前須取得授權。
 
 ## 註解與可讀性
 

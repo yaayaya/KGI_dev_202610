@@ -25,6 +25,10 @@ description: 開發 KGI 的 Vue 畫面、元件、狀態或 API 串接時使用�
 - API 型別以後端 OpenAPI 為準；金融數值維持十進位字串，計算由後端處理。保留取消請求、過期回應防護與獨立錯誤狀態。
 - 契約變更依 README 重產並版控 OpenAPI／Orval 產物，不手改生成檔；沿用 HTTP 狀態及 ProblemDetails。`VITE_API_BASE_URL` 為服務根路徑／網址，端點已含 `/api`，`VITE_` 變數不放機密。
 
+## 涉及資料庫的功能變更
+
+- 需求涉及資料庫結構或預載資料時，同時依 [kgi-backend](../kgi-backend/SKILL.md) 同步測試 SQL、`DBSCRIPT/Rebuild.sql` 與受影響的測試。
+
 ## 註解與畫面可讀性
 
 - 手寫模組開頭說明責任，重要方法用繁中 JSDoc；script 按狀態、衍生值與操作分群，命名表達用途，註解解釋原因與邊界。
