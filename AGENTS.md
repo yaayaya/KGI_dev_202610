@@ -10,6 +10,7 @@
 - API 與測試的資料存取統一使用 Dapper、`Microsoft.Data.SqlClient` 與明確參數化 SQL；資料庫結構以 SQL 腳本為準，POCO、Service／DTO 與 OpenAPI 契約分別維護。
 - 單一 `Kgi.Api` 內採 Controller → Service → Dao → DB：Service 保留驗證、計算、流程與 DTO，具體功能 Dao 負責 Dapper、SQL 參數、POCO 映射及連線管理；不先建立通用 BaseDao、Repository 或額外介面。
 - 依需求修改，不因新增功能就建立空資料夾、通用介面或額外架構層；不順帶升級套件、重建資料庫或格式化整個專案。
+- 前端新增、修改、刪除資料前皆須使用 Dialog 確認，包含按鈕及 Enter 送出；確認摘要須對應實際送出的資料。時間欄位維持既有時區轉換，畫面標題不加「（台北）」。
 
 ## 專案 Skills
 

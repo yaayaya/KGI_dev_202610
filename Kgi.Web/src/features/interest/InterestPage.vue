@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { LoaderCircle, RefreshCw } from '@lucide/vue';
+import { computed, ref } from 'vue';
 import { toast } from 'vue-sonner';
 import { Button } from '@/components/ui/button';
+import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import HelpHint from '@/components/HelpHint.vue';
 import InterestBatchTable from './InterestBatchTable.vue';
 import { useInterestMonitor } from './useInterestMonitor';
@@ -26,6 +28,22 @@ const {
   selectBatch,
   startSettlement,
 } = useInterestMonitor();
+
+// 確認視窗固定顯示按下啟動時的批次摘要，不隨監控選取或輪詢切換操作對象。
+const settlementDialogOpen = ref(false);
+const settlementConfirmation = ref<{ batchId: string; expectedAmt: string } | null>(null);
+const canConfirmSettlement = computed(() => {
+  const confirmation = settlementConfirmation.value;
+  if (!confirmation) return false;
+  const batch = batches.value.find((item) => item.batchId === confirmation.batchId);
+  return (
+    batch?.processStatus === 0 &&
+    batch.expectedAmt === confirmation.expectedAmt &&
+    !startingIds.value.has(confirmation.batchId) &&
+    !unknownIds.value.has(confirmation.batchId)
+  );
+});
+
 const timeFormatter = new Intl.DateTimeFormat('sv-SE', {
   timeZone: 'Asia/Taipei',
   year: 'numeric',
@@ -45,10 +63,30 @@ function formatTime(value: string | null) {
 }
 
 /**
+ * 先保存批次與預計總額，再交由使用者確認；取消視窗不會送出啟動指令。
+ */
+function requestSettlement(batchId: string) {
+  if (settlementDialogOpen.value) return;
+  const batch = batches.value.find((item) => item.batchId === batchId);
+  if (
+    !batch ||
+    batch.processStatus !== 0 ||
+    startingIds.value.has(batchId) ||
+    unknownIds.value.has(batchId)
+  )
+    return;
+  settlementConfirmation.value = { batchId: batch.batchId, expectedAmt: batch.expectedAmt };
+  settlementDialogOpen.value = true;
+}
+
+/**
  * 接受啟動只表示背景作業已受理，成功與失敗仍以後續批次狀態為準。
  */
-async function submitSettlement(batchId: string) {
-  const result = await startSettlement(batchId);
+async function submitSettlement() {
+  const confirmation = settlementConfirmation.value;
+  if (!confirmation || !canConfirmSettlement.value) return;
+  settlementConfirmation.value = null;
+  const result = await startSettlement(confirmation.batchId);
   if (result) toast.success(`已受理 ${result.batchId} 結算，請查看進度。`);
 }
 </script>
@@ -108,8 +146,32 @@ async function submitSettlement(batchId: string) {
       :loading="initialLoading"
       :failed="!!listError"
       @select="selectBatch"
-      @start="submitSettlement"
+      @start="requestSettlement"
     />
+
+    <!-- 輪詢若改變原批次狀態或金額，停用確認，不能改送另一筆或沿用過期摘要。 -->
+    <ConfirmDialog
+      v-model:open="settlementDialogOpen"
+      title="確認啟動結算"
+      description="受理後將啟動此批次結算，同一批次不得重複啟動。"
+      confirm-text="確認啟動結算"
+      :disabled="!canConfirmSettlement"
+      @confirm="submitSettlement"
+    >
+      <dl v-if="settlementConfirmation" class="space-y-2 rounded-md bg-muted px-3 py-2 text-xs">
+        <div class="flex flex-wrap justify-between gap-2">
+          <dt class="text-muted-foreground">批次編號</dt>
+          <dd class="font-medium">{{ settlementConfirmation.batchId }}</dd>
+        </div>
+        <div class="flex flex-wrap justify-between gap-2">
+          <dt class="text-muted-foreground">預計總額（元）</dt>
+          <dd class="font-medium tabular-nums">{{ settlementConfirmation.expectedAmt }}</dd>
+        </div>
+      </dl>
+      <p v-if="!canConfirmSettlement" class="mt-2 text-xs text-warning" role="alert">
+        批次資料或狀態已更新，請取消後重新選擇待處理批次。
+      </p>
+    </ConfirmDialog>
 
     <!-- 失敗批次以紅底工作區與錯誤日誌告警，保留中斷時的真實進度。 -->
     <section
@@ -141,8 +203,8 @@ async function submitSettlement(batchId: string) {
         v-if="selectedBatch"
         class="flex flex-wrap gap-x-5 gap-y-1 px-3 py-2 text-[11px] text-muted-foreground"
       >
-        <p>開始時間（台北）：{{ formatTime(selectedBatch.startedTime) }}</p>
-        <p>結束時間（台北）：{{ formatTime(selectedBatch.finishedTime) }}</p>
+        <p>開始時間：{{ formatTime(selectedBatch.startedTime) }}</p>
+        <p>結束時間：{{ formatTime(selectedBatch.finishedTime) }}</p>
       </div>
       <div v-if="selectedBatch?.processStatus === 9" class="px-3 pb-3 text-xs" role="alert">
         <h3 class="font-semibold text-destructive">

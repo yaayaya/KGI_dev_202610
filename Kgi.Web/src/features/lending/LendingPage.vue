@@ -1,19 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref, shallowRef, watch } from 'vue';
 import { ChevronUp, LoaderCircle, RefreshCw, RotateCcw, Upload } from '@lucide/vue';
-import {
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogOverlay,
-  AlertDialogPortal,
-  AlertDialogRoot,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from 'reka-ui';
 import { toast } from 'vue-sonner';
 import { Button } from '@/components/ui/button';
+import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import HelpHint from '@/components/HelpHint.vue';
 import LendingContractTable from './LendingContractTable.vue';
 import MarketPriceUpload from './MarketPriceUpload.vue';
@@ -42,11 +32,54 @@ const {
 } = useLendingMonitor();
 const uploadExpanded = ref(false);
 
+// 確認只保存原始 File 參照；不解析 CSV，也不把同檔名的新選檔視為同一份確認。
+const importDialogOpen = ref(false);
+const importSnapshot = shallowRef<File | null>(null);
+const resetDialogOpen = ref(false);
+const canConfirmImport = computed(
+  () =>
+    !!importSnapshot.value &&
+    selectedFile.value === importSnapshot.value &&
+    canImport.value &&
+    !loading.value &&
+    !importing.value &&
+    !resetting.value,
+);
+const canReset = computed(
+  () => !loading.value && !importing.value && !resetting.value && !!monitor.value?.tradeDate,
+);
+
+// 狀態變動同步讓原確認失效，避免下一次畫面更新前仍可送出舊的確認。
+watch(
+  [selectedFile, monitor, loading, importing, resetting, canImport],
+  () => {
+    importDialogOpen.value = false;
+    resetDialogOpen.value = false;
+    importSnapshot.value = null;
+  },
+  { flush: 'sync' },
+);
+
+/**
+ * 鎖定這次選取的 File，先讓使用者確認上傳及同日替換的影響。
+ */
+function requestImport() {
+  if (!selectedFile.value || !canImport.value || loading.value || importing.value || resetting.value) {
+    return;
+  }
+  importSnapshot.value = selectedFile.value;
+  resetDialogOpen.value = false;
+  importDialogOpen.value = true;
+}
+
 /**
  * 成功寫入後收合匯入區，將空間還給清單；刷新錯誤仍由工作區獨立呈現。
  */
 async function submitImport() {
+  // 共用對話框先關閉再通知；確認有效性依快照判斷，不依對話框是否仍開啟。
+  if (!canConfirmImport.value) return;
   const result = await importFile();
+  importSnapshot.value = null;
   if (result) {
     uploadExpanded.value = false;
     toast.success(`已匯入 ${result.importedCount} 筆行情`);
@@ -54,9 +87,20 @@ async function submitImport() {
 }
 
 /**
+ * 只有目前有行情且沒有其他操作時，才顯示清除全部日期的確認。
+ */
+function requestReset() {
+  if (!canReset.value) return;
+  importDialogOpen.value = false;
+  importSnapshot.value = null;
+  resetDialogOpen.value = true;
+}
+
+/**
  * 確認後才清除行情；成功後收合匯入區，刷新失敗時保留獨立提示。
  */
 async function submitReset() {
+  if (!canReset.value) return;
   if (await resetMarketPrices()) {
     uploadExpanded.value = false;
     if (loadError.value) {
@@ -93,41 +137,17 @@ async function submitReset() {
           <RefreshCw class="size-3.5" :class="{ 'animate-spin': loading }" aria-hidden="true" />
           重新整理
         </Button>
-        <AlertDialogRoot>
-          <AlertDialogTrigger as-child>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              :disabled="loading || importing || resetting || !monitor?.tradeDate"
-            >
-              <LoaderCircle v-if="resetting" class="size-3.5 animate-spin" aria-hidden="true" />
-              <RotateCcw v-else class="size-3.5" aria-hidden="true" />
-              {{ resetting ? '重置中…' : '重置行情' }}
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogPortal>
-            <AlertDialogOverlay class="fixed inset-0 z-40 bg-foreground/30" />
-            <AlertDialogContent
-              class="fixed top-1/2 left-1/2 z-50 w-[min(400px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-card p-4 text-card-foreground shadow-lg"
-            >
-              <AlertDialogTitle class="text-sm font-semibold">確定重置行情？</AlertDialogTitle>
-              <AlertDialogDescription class="mt-2 text-xs leading-relaxed text-muted-foreground">
-                將清除所有日期已匯入的行情，行情日回到「尚未匯入」，全部合約恢復待補價。借券合約與權證資料會保留；行情需重新匯入 CSV 才能恢復。
-              </AlertDialogDescription>
-              <div class="mt-4 flex justify-end gap-2">
-                <AlertDialogCancel as-child>
-                  <Button type="button" variant="outline" size="sm">取消</Button>
-                </AlertDialogCancel>
-                <AlertDialogAction as-child>
-                  <Button type="button" variant="destructive" size="sm" @click="submitReset">
-                    確定重置
-                  </Button>
-                </AlertDialogAction>
-              </div>
-            </AlertDialogContent>
-          </AlertDialogPortal>
-        </AlertDialogRoot>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          :disabled="!canReset"
+          @click="requestReset"
+        >
+          <LoaderCircle v-if="resetting" class="size-3.5 animate-spin" aria-hidden="true" />
+          <RotateCcw v-else class="size-3.5" aria-hidden="true" />
+          {{ resetting ? '重置中…' : '重置行情' }}
+        </Button>
         <Button
           type="button"
           :variant="uploadExpanded ? 'secondary' : 'outline'"
@@ -197,9 +217,9 @@ async function submitReset() {
         :import-error="importError"
         :notice="importNotice"
         :importing="importing || resetting"
-        :can-import="canImport"
+        :can-import="canImport && !loading"
         @select="selectFiles"
-        @import="submitImport"
+        @import="requestImport"
       />
     </div>
 
@@ -238,6 +258,31 @@ async function submitReset() {
       :loading="loading || resetting"
       :failed="!!loadError"
     />
+
+    <!-- 寫入與清除都先確認影響，取消時只關閉對話框，不呼叫 API。 -->
+    <ConfirmDialog
+      v-model:open="importDialogOpen"
+      title="確定匯入行情？"
+      description="確認後將上傳並驗證整份 CSV。相同交易日已匯入的行情將整批替換，其他日期行情會保留。"
+      confirm-text="確認匯入"
+      :disabled="!canConfirmImport"
+      @confirm="submitImport"
+    >
+      <p class="break-all">檔案：{{ importSnapshot?.name }}</p>
+      <p class="mt-1">交易日期與全部資料將由後端驗證；驗證失敗不會寫入部分行情。</p>
+    </ConfirmDialog>
+    <ConfirmDialog
+      v-model:open="resetDialogOpen"
+      title="確定重置行情？"
+      description="將清除所有日期已匯入的行情，行情日回到「尚未匯入」，全部合約恢復待補價。借券合約與權證資料會保留；行情需重新匯入 CSV 才能恢復。"
+      confirm-text="確定重置"
+      :disabled="!canReset"
+      destructive
+      @confirm="submitReset"
+    >
+      <p>目前畫面行情日：{{ monitor?.tradeDate }}</p>
+      <p class="mt-1">清除範圍包含全部日期，無法透過此畫面復原。</p>
+    </ConfirmDialog>
   </div>
 </template>
 

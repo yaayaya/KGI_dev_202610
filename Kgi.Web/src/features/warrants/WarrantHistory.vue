@@ -72,10 +72,10 @@ function formatTime(value: string | null) {
     <!-- 表格區獨立捲動；窄螢幕保留數值欄寬，避免為塞入畫面而截斷金額。 -->
     <div class="min-h-0 flex-1 overflow-auto">
       <table class="erp-table min-w-[460px]" aria-label="該權證最近十筆試算紀錄">
-        <!-- 固定表頭保留台北時間與各數值的單位。 -->
+        <!-- 固定表頭保留儲存時間與各數值的單位。 -->
         <thead class="sticky top-0 z-10">
           <tr>
-            <th scope="col" class="text-left!">儲存時間（台北）</th>
+            <th scope="col" class="text-left!">儲存時間</th>
             <th scope="col">標的股價（元）</th>
             <th scope="col">理論價值（元）</th>
             <th scope="col">避險張數（張）</th>
