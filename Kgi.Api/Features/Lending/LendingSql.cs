@@ -5,6 +5,8 @@ namespace Kgi.Api.Features.Lending;
 /// </summary>
 public static class LendingSql
 {
+    public const string ResetMarketPrices = "DELETE FROM dbo.Market_Price;";
+
     public const string Monitor = """
         DECLARE @EffectiveDate DATE = COALESCE(@TradeDate, (SELECT MAX(Trade_Date) FROM dbo.Market_Price));
         SELECT @EffectiveDate;

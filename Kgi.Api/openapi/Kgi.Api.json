@@ -1376,6 +1376,382 @@
           }
         }
       }
+    },
+    "/api/lending/market-prices": {
+      "delete": {
+        "tags": [
+          "Lending"
+        ],
+        "summary": "清除全部交易日的匯入行情，保留借券合約及權證資料，監控回到尚未匯入狀態。",
+        "operationId": "ResetMarketPrices",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/interest/batches": {
+      "get": {
+        "tags": [
+          "Interest"
+        ],
+        "summary": "取得全部結算批次的已提交狀態與進度。",
+        "operationId": "GetInterestBatches",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InterestBatchResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InterestBatchResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InterestBatchResponse"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/interest/batches/{id}": {
+      "get": {
+        "tags": [
+          "Interest"
+        ],
+        "summary": "取得單批狀態及已提交的明細，處理中不讀取帳務明細。",
+        "operationId": "GetInterestBatch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterestBatchDetailResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterestBatchDetailResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterestBatchDetailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/interest/batches/{id}/settlement": {
+      "post": {
+        "tags": [
+          "Interest"
+        ],
+        "summary": "原子受理待處理批次並立即回傳 202；帳務由背景工作處理，不隨 HTTP 中斷取消。",
+        "operationId": "StartInterestSettlement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterestBatchResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterestBatchResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterestBatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1383,6 +1759,121 @@
       "IFormFile": {
         "type": "string",
         "format": "binary"
+      },
+      "InterestBatchDetailResponse": {
+        "required": [
+          "batch",
+          "calculatedAmt",
+          "details"
+        ],
+        "type": "object",
+        "properties": {
+          "batch": {
+            "description": "本次查詢的批次狀態。",
+            "$ref": "#/components/schemas/InterestBatchResponse"
+          },
+          "calculatedAmt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "已提交明細總額（元），固定四位小數；未成功時為 null。"
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InterestDetailResponse"
+            },
+            "description": "已成功提交的合約利息明細；未成功時為空集合。"
+          }
+        },
+        "description": "選定批次的監控快照及已提交明細；處理中不讀取未提交帳務。"
+      },
+      "InterestBatchResponse": {
+        "required": [
+          "batchId",
+          "expectedAmt",
+          "processStatus",
+          "progressRate",
+          "startedTime",
+          "finishedTime",
+          "errorMessage"
+        ],
+        "type": "object",
+        "properties": {
+          "batchId": {
+            "type": "string",
+            "description": "批次編號，最多二十個字元。"
+          },
+          "expectedAmt": {
+            "type": "string",
+            "description": "預計總額（元），固定四位小數，獨立於本次計算結果。"
+          },
+          "processStatus": {
+            "enum": [
+              0,
+              1,
+              2,
+              9
+            ],
+            "type": "integer",
+            "description": "批次狀態：0 待處理、1 處理中、2 成功、9 失敗。",
+            "format": "int32"
+          },
+          "progressRate": {
+            "type": "integer",
+            "description": "處理進度（0–100）；只有成功提交後為 100。",
+            "format": "int32"
+          },
+          "startedTime": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "UTC ISO 8601 時間；尚未開始或結束時為 null。",
+            "format": "date-time"
+          },
+          "finishedTime": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "UTC ISO 8601 時間；尚未開始或結束時為 null。",
+            "format": "date-time"
+          },
+          "errorMessage": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "可呈現的失敗日誌；沒有失敗時為 null，不含連線或系統機密。"
+          }
+        },
+        "description": "利息批次的監控快照，金額以四位小數字串傳輸。"
+      },
+      "InterestDetailResponse": {
+        "required": [
+          "detailId",
+          "contractNo",
+          "dailyInterest"
+        ],
+        "type": "object",
+        "properties": {
+          "detailId": {
+            "type": "integer",
+            "description": "明細流水號，為資料庫自動產生的正整數。",
+            "format": "int32"
+          },
+          "contractNo": {
+            "type": "string",
+            "description": "此批來源快照的合約編號，最多二十個字元。"
+          },
+          "dailyInterest": {
+            "type": "string",
+            "description": "該合約的當日利息（元），固定四位小數。"
+          }
+        },
+        "description": "已提交的單筆合約利息。"
       },
       "LendingContractResponse": {
         "required": [
@@ -2265,6 +2756,9 @@
     },
     {
       "name": "Lending"
+    },
+    {
+      "name": "Interest"
     }
   ]
 }

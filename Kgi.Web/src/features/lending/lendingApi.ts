@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getLendingMonitor, importMarketPrices } from '@/api/generated/kgiApi';
+import { getLendingMonitor, importMarketPrices, resetMarketPrices } from '@/api/generated/kgiApi';
 
 /**
  * Q2 的 API 薄轉接層：沿用 Orval 型別與請求，讀取支援取消，寫入不自動重送。
@@ -17,6 +17,13 @@ export const lendingApi = {
    */
   importFile(file: File) {
     return importMarketPrices({ file }, { timeout: 60_000 });
+  },
+
+  /**
+   * 清除所有交易日的行情，保留借券合約與權證資料。
+   */
+  resetMarketPrices() {
+    return resetMarketPrices();
   },
 };
 

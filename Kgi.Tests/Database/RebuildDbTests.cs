@@ -14,13 +14,13 @@ public sealed class DatabaseRebuildCollection;
 /// 提供可從測試總管單獨執行的單一 KGI 重建入口。
 /// </summary>
 [Collection("DatabaseRebuild")]
-[Trait("Category", "Database")]
+[Trait("Category", "DatabaseReset")]
 public sealed class RebuildDbTests
 {
     /// <summary>
-    /// 重建 Q1、Q2、Q4，核對初始數量、公司部位、歷史快照與股利控制總額。
+    /// 明確授權後重建 Q1、Q2、Q3、Q4，核對初始數量、公司部位、歷史快照與股利控制總額。
     /// </summary>
-    [DatabaseFact]
+    [DestructiveDatabaseFact]
     public async Task RebuildDb()
     {
         var connectionString = DatabaseTestConfiguration.ConnectionString
@@ -36,6 +36,12 @@ public sealed class RebuildDbTests
             SELECT COUNT(*) FROM dbo.Warrant_Trial_Log;
             SELECT COUNT(*) FROM dbo.Lending_Contract;
             SELECT COUNT(*) FROM dbo.Market_Price;
+            SELECT COUNT(*) FROM dbo.Interest_Batch;
+            SELECT COUNT(*) FROM dbo.Interest_Source;
+            SELECT COUNT(*) FROM dbo.Interest_Detail;
+            SELECT COUNT(*) FROM dbo.Interest_Batch
+            WHERE Process_Status = 0 AND Progress_Rate = 0
+                AND Started_Time IS NULL AND Finished_Time IS NULL AND Error_Message IS NULL;
             SELECT COUNT(*) FROM dbo.Company_Master;
             SELECT COUNT(*) FROM dbo.Shareholder_Master;
             SELECT COUNT(*) FROM dbo.Shareholding_Register;
@@ -107,12 +113,26 @@ public sealed class RebuildDbTests
                 AND NOT EXISTS (SELECT 1 FROM sys.extended_properties AS p
                     WHERE p.major_id = c.object_id AND p.minor_id = c.column_id
                         AND p.name = N'MS_Description');
+
+            SELECT Batch.Batch_ID AS BatchId, Batch.Expected_Amt AS ExpectedAmt,
+                Batch.Process_Status AS ProcessStatus, Batch.Progress_Rate AS ProgressRate,
+                Batch.Started_Time AS StartedTime, Batch.Finished_Time AS FinishedTime,
+                Batch.Error_Message AS ErrorMessage, COUNT(Source.Contract_No) AS SourceCount,
+                SUM(CAST(ROUND(Source.Principal_Amt * Source.Annual_Rate / 365.0, 4) AS DECIMAL(18,4))) AS CalculatedAmt
+            FROM dbo.Interest_Batch AS Batch
+            LEFT JOIN dbo.Interest_Source AS Source ON Source.Batch_ID = Batch.Batch_ID
+            GROUP BY Batch.Batch_ID, Batch.Expected_Amt, Batch.Process_Status, Batch.Progress_Rate,
+                Batch.Started_Time, Batch.Finished_Time, Batch.Error_Message;
             """));
 
         Assert.Equal(800, await results.ReadSingleAsync<int>());
         Assert.Equal(0, await results.ReadSingleAsync<int>());
         Assert.Equal(1000, await results.ReadSingleAsync<int>());
         Assert.Equal(0, await results.ReadSingleAsync<int>());
+        Assert.Equal(3, await results.ReadSingleAsync<int>());
+        Assert.Equal(1015, await results.ReadSingleAsync<int>());
+        Assert.Equal(0, await results.ReadSingleAsync<int>());
+        Assert.Equal(3, await results.ReadSingleAsync<int>());
 
         // Q4 只預載歷史過戶，不預先產生通知或股利完成結果。
         foreach (var count in new[] { 3, 300, 506, 6, 1000, 1, 1, 6, 8, 0, 0 })
@@ -239,6 +259,27 @@ public sealed class RebuildDbTests
         Assert.Equal((100, 101, 1, 1), (historical.ToShareQtyBefore, historical.ToShareQtyAfter, historical.ToPledgeQtyBefore, historical.ToPledgeQtyAfter));
         Assert.Equal("CA5F22600964A05735645C1AAEB9161D5D1841BE3D23EBE8FC8F0DC8A2771B82", await results.ReadSingleAsync<string>());
         Assert.Equal(0, await results.ReadSingleAsync<int>());
+
+        var interestBatches = (await results.ReadAsync<SeedInterestBatch>()).ToDictionary(batch => batch.BatchId);
+        var expectedInterest = new Dictionary<string, (int Sources, decimal Expected, decimal Calculated)>
+        {
+            ["20261029_INT"] = (1000, 22230.2344m, 22230.2344m),
+            ["20261028_INT"] = (10, 441.3006m, 441.3004m),
+            ["20261027_INT"] = (5, 720.4026m, 720.4026m)
+        };
+        Assert.Equal(3, interestBatches.Count);
+        foreach (var (batchId, expected) in expectedInterest)
+        {
+            var actual = interestBatches[batchId];
+            Assert.Equal(expected.Sources, actual.SourceCount);
+            Assert.Equal(expected.Expected, actual.ExpectedAmt);
+            Assert.Equal(expected.Calculated, actual.CalculatedAmt);
+            Assert.Equal(0, actual.ProcessStatus);
+            Assert.Equal(0, actual.ProgressRate);
+            Assert.Null(actual.StartedTime);
+            Assert.Null(actual.FinishedTime);
+            Assert.Null(actual.ErrorMessage);
+        }
     }
 
     /// <summary>
@@ -312,5 +353,21 @@ public sealed class RebuildDbTests
         public int ToShareQtyAfter { get; set; }
         public int ToPledgeQtyBefore { get; set; }
         public int ToPledgeQtyAfter { get; set; }
+    }
+
+    /// <summary>
+    /// 承接 Q3 三批來源數、預計總額與初始狀態，保留故意總額不符的案例。
+    /// </summary>
+    private sealed class SeedInterestBatch
+    {
+        public string BatchId { get; set; } = "";
+        public decimal ExpectedAmt { get; set; }
+        public int ProcessStatus { get; set; }
+        public int ProgressRate { get; set; }
+        public DateTime? StartedTime { get; set; }
+        public DateTime? FinishedTime { get; set; }
+        public string? ErrorMessage { get; set; }
+        public int SourceCount { get; set; }
+        public decimal CalculatedAmt { get; set; }
     }
 }

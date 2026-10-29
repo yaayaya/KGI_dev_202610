@@ -1,57 +1,96 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 
 namespace Kgi.Tests.Database;
 
 /// <summary>
-/// 與本機 API 共用 KGI 連線，依序讀取設定檔、User Secrets 及環境變數。
+/// 資料庫測試沿用 API 的 Kgi 連線，僅在明確啟用時使用單一 KGI 資料庫。
 /// </summary>
 public static class DatabaseTestConfiguration
 {
-    private static readonly Lazy<IConfiguration> Configuration = new(LoadConfiguration);
+    private static readonly Lazy<string?> LazyConnectionString = new(ResolveConnectionString);
+    private static readonly Lazy<bool> LazyRunDatabaseTests = new(ResolveRunDatabaseTests);
 
     /// <summary>
-    /// 直接取得 API 使用的 ConnectionStrings:Kgi，不改寫資料庫名稱或環境變數。
+    /// 沿用 API 的 ConnectionStrings:Kgi，不另行切換資料庫或維護測試連線。
     /// </summary>
-    public static string? ConnectionString => Configuration.Value.GetConnectionString("Kgi");
+    public static string? ConnectionString => LazyConnectionString.Value;
 
     /// <summary>
-    /// 只有明確設定環境變數 KGI_ALLOW_DB_REBUILD=1 才允許清除並重建 KGI。
+    /// 判斷是否明確允許建立及清理本次測試擁有的資料；不允許自動重建資料庫。
     /// </summary>
-    public static bool AllowDbRebuild => Environment.GetEnvironmentVariable("KGI_ALLOW_DB_REBUILD") == "1";
+    public static bool RunDatabaseTests => LazyRunDatabaseTests.Value;
+
+    /// <summary>
+    /// 僅供手動重建入口使用，不會讓一般資料庫 fixture 自動清表。
+    /// </summary>
+    public static bool AllowDbRebuild
+    {
+        get
+        {
+            var value = LoadConfiguration()["KGI_ALLOW_DB_REBUILD"];
+            return value == "1" || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+        }
+    }
 
     /// <summary>
     /// 判斷資料庫測試是否具備執行條件。
     /// </summary>
-    public static bool IsEnabled => AllowDbRebuild && !string.IsNullOrWhiteSpace(ConnectionString);
+    public static bool IsEnabled => RunDatabaseTests && !string.IsNullOrWhiteSpace(ConnectionString);
 
-    /// <summary>
-    /// 載入本機開發 API 的同一組設定來源，後加入的來源優先。
-    /// </summary>
-    private static IConfiguration LoadConfiguration() => new ConfigurationBuilder()
-        .SetBasePath(FindApiConfigurationDirectory())
-        .AddJsonFile("appsettings.json", optional: true)
-        .AddJsonFile("appsettings.Development.json", optional: true)
-        .AddUserSecrets(typeof(Program).Assembly, optional: true)
-        .AddEnvironmentVariables()
-        .Build();
-
-    /// <summary>
-    /// 優先使用原始 API 設定目錄，獨立測試產物則使用複製至輸出目錄的設定。
-    /// </summary>
-    private static string FindApiConfigurationDirectory()
+    private static IConfiguration LoadConfiguration()
     {
-        var currentDirectory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (currentDirectory != null)
+        var builder = new ConfigurationBuilder();
+        builder.SetBasePath(AppContext.BaseDirectory);
+        builder.AddJsonFile("appsettings.json", optional: true);
+        builder.AddJsonFile("appsettings.Development.json", optional: true);
+
+        var currentDir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (currentDir != null)
         {
-            var apiDirectory = Path.Combine(currentDirectory.FullName, "Kgi.Api");
-            if (File.Exists(Path.Combine(apiDirectory, "Kgi.Api.csproj")))
+            var apiDevJson = Path.Combine(currentDir.FullName, "Kgi.Api", "appsettings.Development.json");
+            if (File.Exists(apiDevJson))
             {
-                return apiDirectory;
+                builder.AddJsonFile(apiDevJson, optional: true);
+                break;
             }
 
-            currentDirectory = currentDirectory.Parent;
+            var rootDevJson = Path.Combine(currentDir.FullName, "appsettings.Development.json");
+            if (File.Exists(rootDevJson))
+            {
+                builder.AddJsonFile(rootDevJson, optional: true);
+                break;
+            }
+
+            currentDir = currentDir.Parent;
         }
 
-        return AppContext.BaseDirectory;
+        // 與 API 共用同一個 UserSecretsId，環境變數仍具有最高優先序。
+        builder.AddUserSecrets(typeof(Program).Assembly, optional: true);
+        builder.AddEnvironmentVariables();
+        return builder.Build();
+    }
+
+    private static string? ResolveConnectionString()
+    {
+        var configuration = LoadConfiguration();
+        var connectionString = configuration.GetConnectionString("Kgi");
+
+        if (!string.IsNullOrWhiteSpace(connectionString))
+        {
+            var databaseName = new SqlConnectionStringBuilder(connectionString).InitialCatalog;
+            if (!string.Equals(databaseName, "KGI", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("本版本僅使用 KGI，請將 ConnectionStrings:Kgi 的 Database 設為 KGI。");
+            }
+        }
+
+        return connectionString;
+    }
+
+    private static bool ResolveRunDatabaseTests()
+    {
+        var value = LoadConfiguration()["KGI_RUN_DB_TESTS"];
+        return value == "1" || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
     }
 }

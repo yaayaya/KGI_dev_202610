@@ -24,7 +24,7 @@ public static class InitTestDbTool
     }
 
     /// <summary>
-    /// 在 KGI 不存在時建立，再確切重建其 Q1、Q2、Q4 表、索引與預載資料。
+    /// 在 KGI 不存在時建立，再確切重建其 Q1、Q2、Q3、Q4 表、索引與預載資料。
     /// </summary>
     public static async Task RebuildAsync(string connectionString)
     {

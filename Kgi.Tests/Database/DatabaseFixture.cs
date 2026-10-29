@@ -1,59 +1,87 @@
-using Kgi.Tests.Database.Scripts;
+using Dapper;
+using Microsoft.Data.SqlClient;
 
 namespace Kgi.Tests.Database;
 
 /// <summary>
-/// 共用單一 KGI 資料庫，避免資料庫案例彼此並行修改。
+/// 序列化共用 KGI 的功能測試，避免不同案例同時修改資料。
 /// </summary>
 [CollectionDefinition("Database", DisableParallelization = true)]
 public sealed class DatabaseCollection : ICollectionFixture<DatabaseFixture>;
 
 /// <summary>
-/// 在明確啟用重建後，使用與 API 相同的 KGI 連線重建功能資料。
+/// 確認既有 KGI 已部署完成，不重建、清表或重設示範資料。
 /// </summary>
 public sealed class DatabaseFixture : IAsyncLifetime
 {
     /// <summary>
-    /// 取得 API 共用連線，不導向其他資料庫。
+    /// 沿用 API 的單一 KGI 連線。
     /// </summary>
     public string ConnectionString => DatabaseTestConfiguration.ConnectionString
-        ?? throw new InvalidOperationException("請透過 API 設定檔、User Secrets 或環境變數設定 ConnectionStrings:Kgi，並指定 KGI 資料庫。");
+        ?? throw new InvalidOperationException("請沿用 API 設定 ConnectionStrings:Kgi，資料庫名稱須為 KGI。");
 
     /// <summary>
-    /// 依重建開關初始化單一 KGI 的資料表、索引與假資料。
+    /// 確認 Q1 至 Q4 已部署；不清表、不改寫既有作業。
     /// </summary>
     public async Task InitializeAsync()
     {
         if (DatabaseFactAttribute.IsEnabled)
         {
-            await InitTestDbTool.RebuildAsync(ConnectionString);
+            await using var connection = new SqlConnection(ConnectionString);
+            await connection.OpenAsync();
+            var ready = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+                """
+                SELECT CAST(CASE WHEN OBJECT_ID(N'dbo.Warrant_Master', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Warrant_Trial_Log', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Lending_Contract', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Market_Price', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Interest_Batch', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Interest_Source', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Interest_Detail', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Company_Master', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Shareholder_Master', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Shareholding_Register', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Shareholding_Snapshot', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Shareholding_Snapshot_Detail', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Share_Operation_Request', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Share_Transfer_Log', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Shareholders_Meeting', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Meeting_Notice_Detail', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Dividend_Batch', N'U') IS NOT NULL
+                    AND OBJECT_ID(N'dbo.Dividend_Detail', N'U') IS NOT NULL
+                    THEN 1 ELSE 0 END AS BIT);
+                """));
+            if (!ready)
+            {
+                throw new InvalidOperationException("KGI 尚未部署完成，請依 README 套用建表或增量腳本後再執行資料庫測試。");
+            }
         }
     }
 
     /// <summary>
-    /// 測試結束後保留 KGI，供實際功能操作及資料核對。
+    /// 保留既有 KGI，由各測試自行清理擁有的資料。
     /// </summary>
     public Task DisposeAsync() => Task.CompletedTask;
 }
 
 /// <summary>
-/// 未明確啟用 KGI 重建或尚未設定 API 共用連線時，標示資料庫案例為跳過。
+/// 僅在明確啟用一般資料庫測試時執行，不包含重建授權。
 /// </summary>
 public sealed class DatabaseFactAttribute : FactAttribute
 {
     /// <summary>
-    /// 判斷是否具備重建 KGI 的明確開關與共用連線。
+    /// 判斷是否已設定一般測試旗標及 API 共用連線。
     /// </summary>
     public static bool IsEnabled => DatabaseTestConfiguration.IsEnabled;
 
     /// <summary>
-    /// 顯示尚未啟用資料庫案例的具體條件。
+    /// 未滿足一般測試條件時顯示明確的跳過原因。
     /// </summary>
     public DatabaseFactAttribute()
     {
         if (!IsEnabled)
         {
-            Skip = "資料庫測試會重建單一 KGI；請明確設定 KGI_ALLOW_DB_REBUILD=1，並使用 API 共用的 ConnectionStrings:Kgi。";
+            Skip = "資料庫測試需設定 KGI_RUN_DB_TESTS=1，並沿用 API 的 ConnectionStrings:Kgi；測試不會重建 KGI。";
         }
     }
 }

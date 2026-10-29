@@ -43,6 +43,12 @@ export const router = createRouter({
       meta: { title: '借券維持率監控' },
     },
     {
+      path: '/interest',
+      name: 'interest',
+      component: () => import('./features/interest/InterestPage.vue'),
+      meta: { title: '借券利息結算' },
+    },
+    {
       path: '/stock-affairs',
       name: 'stock-affairs',
       component: () => import('./features/stock-affairs/StockAffairsPage.vue'),

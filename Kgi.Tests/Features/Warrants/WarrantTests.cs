@@ -13,12 +13,15 @@ using Microsoft.Extensions.Configuration;
 
 namespace Kgi.Tests.Features.Warrants;
 
+/// <summary>
+/// 在既有 KGI 驗證權證 API；寫入案例只使用本次建立的權證，結束後只清理自身資料。
+/// </summary>
 [Collection("Database")]
 [Trait("Category", "Database")]
 public sealed class WarrantApiTests(DatabaseFixture database)
 {
     [DatabaseFact]
-    public async Task ListReturnsAllEightHundredWarrantsAndSupportsKeywordSearch()
+    public async Task ListReturnsAtLeastEightHundredWarrantsAndSupportsKeywordSearch()
     {
         await using var factory = CreateFactory();
         using var client = factory.CreateClient();
@@ -27,7 +30,7 @@ public sealed class WarrantApiTests(DatabaseFixture database)
         listResponse.EnsureSuccessStatusCode();
         var warrants = Assert.IsType<List<WarrantResponse>>(
             await listResponse.Content.ReadFromJsonAsync<List<WarrantResponse>>());
-        Assert.Equal(800, warrants.Count);
+        Assert.True(warrants.Count >= 800, "既有 KGI 應保留至少 800 筆合成權證，可同時包含使用者資料。");
         Assert.True(warrants.Select(warrant => warrant.StrikePrice).Distinct().Count() >= 700,
             "合成資料應至少包含 700 種履約價。");
         Assert.True(warrants.Select(warrant => warrant.ConversionRatio).Distinct().Count() >= 12,
@@ -42,7 +45,8 @@ public sealed class WarrantApiTests(DatabaseFixture database)
         searchResponse.EnsureSuccessStatusCode();
         var matches = Assert.IsType<List<WarrantResponse>>(
             await searchResponse.Content.ReadFromJsonAsync<List<WarrantResponse>>());
-        var match = Assert.Single(matches);
+        Assert.All(matches, warrant => Assert.Contains("03001", warrant.WarrantId));
+        var match = Assert.Single(matches, warrant => warrant.WarrantId == "03001C");
         Assert.Equal("03001C", match.WarrantId);
         Assert.Equal("100.0000", match.StrikePrice);
         Assert.Equal("0.1000", match.ConversionRatio);
@@ -54,40 +58,20 @@ public sealed class WarrantApiTests(DatabaseFixture database)
     [DatabaseFact]
     public async Task KeywordSearchTreatsSqlPatternCharactersAsLiteralText()
     {
-        var warrantIds = new[] { "LIT%01", "LIT_01", "LIT[01]", "LITX01" };
+        var prefix = $"T{Guid.NewGuid():N}"[..7].ToUpperInvariant();
+        var warrantIds = new[] { $"{prefix}%01", $"{prefix}_01", $"{prefix}[1]", $"{prefix}X01" };
+        // 建立成功後才進入清理區段；若代碼碰撞，交易回滾且不刪除既有權證。
+        await CreateTestWarrantsAsync(warrantIds);
         try
         {
-            await using (var connection = CreateConnection())
-            {
-                await connection.OpenAsync();
-                await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
-                foreach (var warrantId in warrantIds)
-                {
-                    var parameters = new DynamicParameters();
-                    parameters.Add("WarrantId", warrantId, DbType.AnsiString, size: 10);
-                    parameters.Add("StrikePrice", 100m, DbType.Decimal, precision: 18, scale: 4);
-                    parameters.Add("ConversionRatio", 0.1m, DbType.Decimal, precision: 18, scale: 4);
-                    parameters.Add("WarrantType", "CALL", DbType.AnsiString, size: 4);
-                    parameters.Add("PositionQty", 1000, DbType.Int32);
-                    await connection.ExecuteAsync(new CommandDefinition(
-                        """
-                        INSERT INTO dbo.Warrant_Master
-                            (Warrant_ID, Strike_Price, Conversion_Ratio, Warrant_Type, Position_Qty)
-                        VALUES (@WarrantId, @StrikePrice, @ConversionRatio, @WarrantType, @PositionQty);
-                        """, parameters, transaction));
-                }
-
-                await transaction.CommitAsync();
-            }
-
             await using var factory = CreateFactory();
             using var client = factory.CreateClient();
             var cases = new[]
             {
-                (Keyword: "%", WarrantId: "LIT%01"),
-                (Keyword: "_", WarrantId: "LIT_01"),
-                (Keyword: "[", WarrantId: "LIT[01]"),
-                (Keyword: "[01]", WarrantId: "LIT[01]")
+                (Keyword: $"{prefix}%", WarrantId: warrantIds[0]),
+                (Keyword: $"{prefix}_", WarrantId: warrantIds[1]),
+                (Keyword: $"{prefix}[", WarrantId: warrantIds[2]),
+                (Keyword: $"{prefix}[1]", WarrantId: warrantIds[2])
             };
             foreach (var item in cases)
             {
@@ -101,17 +85,14 @@ public sealed class WarrantApiTests(DatabaseFixture database)
         }
         finally
         {
-            await using var connection = CreateConnection();
-            await connection.ExecuteAsync(new CommandDefinition(
-                "DELETE FROM dbo.Warrant_Master WHERE Warrant_ID IN @WarrantIds;",
-                new { WarrantIds = warrantIds.Select(ToVarcharWarrantId).ToArray() }));
+            await DeleteTestWarrantsAsync(warrantIds);
         }
     }
 
     [DatabaseFact]
     public async Task PreviewCalculatesCallAndPutWithoutWritingLogs()
     {
-        var before = await CountTrialsAsync();
+        var before = await CountTrialsAsync("03001C", "03002P");
         await using var factory = CreateFactory();
         using var client = factory.CreateClient();
         var cases = new (string WarrantId, decimal MarketPrice, string TheoryPrice, string HedgeQty)[]
@@ -136,17 +117,20 @@ public sealed class WarrantApiTests(DatabaseFixture database)
             Assert.Null(preview.CreatedTime);
         }
 
-        Assert.Equal(before, await CountTrialsAsync());
+        Assert.Equal(before, await CountTrialsAsync("03001C", "03002P"));
     }
 
     [DatabaseFact]
     public async Task SaveRecalculatesInsteadOfTrustingClientResultsAndPersistsUtcTime()
     {
+        var warrantId = NewTestWarrantId();
+        await CreateTestWarrantsAsync(warrantId);
         try
         {
+            var before = await CountTrialsAsync(warrantId);
             await using var factory = CreateFactory();
             using var client = factory.CreateClient();
-            using var response = await client.PostAsJsonAsync("/api/warrants/03001C/trials", new
+            using var response = await client.PostAsJsonAsync($"/api/warrants/{warrantId}/trials", new
             {
                 marketPrice = "120.1234",
                 theoryPrice = "99999.9999",
@@ -172,21 +156,25 @@ public sealed class WarrantApiTests(DatabaseFixture database)
                 WHERE Log_ID = @LogId;
                 """, new { saved.LogId }));
             Assert.Equal(saved.LogId.Value, persisted.LogId);
-            Assert.Equal("03001C", persisted.WarrantId);
+            Assert.Equal(warrantId, persisted.WarrantId);
             Assert.Equal(120.1234m, persisted.MarketPrice);
             Assert.Equal(2.0123m, persisted.TheoryPrice);
             Assert.Equal(80m, persisted.HedgeQty);
             Assert.Equal(saved.CreatedTime.Value, persisted.CreatedTime);
+            Assert.Equal(before + 1, await CountTrialsAsync(warrantId));
         }
         finally
         {
-            await DeleteTrialsAsync("03001C");
+            await DeleteTestWarrantsAsync(warrantId);
         }
     }
 
     [DatabaseFact]
     public async Task HistoryReturnsTenNewestWithStableTieBreakingAndFiltersByWarrant()
     {
+        var warrantId = NewTestWarrantId();
+        var otherWarrantId = NewTestWarrantId();
+        await CreateTestWarrantsAsync(warrantId, otherWarrantId);
         try
         {
             var created = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -195,7 +183,7 @@ public sealed class WarrantApiTests(DatabaseFixture database)
             {
                 trials.Add(new WarrantTrialLog
                 {
-                    WarrantId = "03001C",
+                    WarrantId = warrantId,
                     MarketPrice = 100m + number,
                     TheoryPrice = number * 0.1m,
                     HedgeQty = 80m,
@@ -213,7 +201,7 @@ public sealed class WarrantApiTests(DatabaseFixture database)
 
                 await InsertTrialAsync(connection, transaction, new WarrantTrialLog
                 {
-                    WarrantId = "03002P", MarketPrice = 80m, TheoryPrice = 2m, HedgeQty = 80m,
+                    WarrantId = otherWarrantId, MarketPrice = 80m, TheoryPrice = 2m, HedgeQty = 80m,
                     CreatedTime = created.AddDays(1)
                 });
                 await transaction.CommitAsync();
@@ -221,53 +209,72 @@ public sealed class WarrantApiTests(DatabaseFixture database)
 
             await using var factory = CreateFactory();
             using var client = factory.CreateClient();
-            using var response = await client.GetAsync("/api/warrants/03001C/trials");
+            using var response = await client.GetAsync($"/api/warrants/{warrantId}/trials");
             response.EnsureSuccessStatusCode();
             var history = Assert.IsType<List<TrialResponse>>(
                 await response.Content.ReadFromJsonAsync<List<TrialResponse>>());
 
             Assert.Equal(10, history.Count);
-            Assert.All(history, trial => Assert.Equal("03001C", trial.WarrantId));
+            Assert.All(history, trial => Assert.Equal(warrantId, trial.WarrantId));
             Assert.Equal(trials.OrderByDescending(trial => trial.CreatedTime)
                     .ThenByDescending(trial => trial.LogId).Take(10).Select(trial => trial.LogId),
                 history.Select(trial => trial.LogId.GetValueOrDefault()));
         }
         finally
         {
-            await DeleteTrialsAsync("03001C", "03002P");
+            await DeleteTestWarrantsAsync(warrantId, otherWarrantId);
         }
     }
 
     [DatabaseFact]
     public async Task InvalidPricesReturnBadRequestWithoutWritingLogs()
     {
-        var before = await CountTrialsAsync();
-        await using var factory = CreateFactory();
-        using var client = factory.CreateClient();
-
-        foreach (var price in new[] { "0", "-1", "0.00001", "100000000000000", "不是價格" })
+        var warrantId = NewTestWarrantId();
+        await CreateTestWarrantsAsync(warrantId);
+        try
         {
-            using var response = await client.PostAsJsonAsync("/api/warrants/03001C/trials",
-                new { marketPrice = price });
-            await AssertProblemAsync(response, HttpStatusCode.BadRequest);
-        }
+            var before = await CountTrialsAsync(warrantId);
+            await using var factory = CreateFactory();
+            using var client = factory.CreateClient();
 
-        Assert.Equal(before, await CountTrialsAsync());
+            foreach (var price in new[] { "0", "-1", "0.00001", "100000000000000", "不是價格" })
+            {
+                using var response = await client.PostAsJsonAsync($"/api/warrants/{warrantId}/trials",
+                    new { marketPrice = price });
+                await AssertProblemAsync(response, HttpStatusCode.BadRequest);
+            }
+
+            Assert.Equal(before, await CountTrialsAsync(warrantId));
+        }
+        finally
+        {
+            await DeleteTestWarrantsAsync(warrantId);
+        }
     }
 
     [DatabaseFact]
     public async Task MissingWarrantsReturnNotFound()
     {
+        var warrantId = NewTestWarrantId();
+        await using (var connection = CreateConnection())
+        {
+            // 先確認隨機代碼不存在，避免誤對既有權證送出有效的儲存要求。
+            var exists = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+                "SELECT COUNT(*) FROM dbo.Warrant_Master WHERE Warrant_ID = @WarrantId;",
+                new { WarrantId = ToVarcharWarrantId(warrantId) }));
+            Assert.Equal(0, exists);
+        }
+
         await using var factory = CreateFactory();
         using var client = factory.CreateClient();
         foreach (var suffix in new[] { "preview", "trials" })
         {
-            using var response = await client.PostAsJsonAsync($"/api/warrants/not-found/{suffix}",
+            using var response = await client.PostAsJsonAsync($"/api/warrants/{warrantId}/{suffix}",
                 new { marketPrice = "120.0000" });
             await AssertProblemAsync(response, HttpStatusCode.NotFound);
         }
 
-        using var historyResponse = await client.GetAsync("/api/warrants/not-found/trials");
+        using var historyResponse = await client.GetAsync($"/api/warrants/{warrantId}/trials");
         await AssertProblemAsync(historyResponse, HttpStatusCode.NotFound);
     }
 
@@ -276,28 +283,71 @@ public sealed class WarrantApiTests(DatabaseFixture database)
         {
             builder.UseEnvironment("Development");
             builder.UseSetting("ConnectionStrings:Kgi", database.ConnectionString);
+            builder.UseSetting("InterestSettlement:Enabled", "false");
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
-                new Dictionary<string, string?> { ["ConnectionStrings:Kgi"] = database.ConnectionString }));
+                new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:Kgi"] = database.ConnectionString,
+                    ["InterestSettlement:Enabled"] = "false"
+                }));
         });
 
     /// <summary>
-    /// 建立連向共用 KGI 的個別 SqlClient 連線。
+    /// 建立連向既有 KGI 的獨立 SqlClient 連線，不重建資料庫。
     /// </summary>
     private SqlConnection CreateConnection() => new(database.ConnectionString);
 
-    private async Task<int> CountTrialsAsync()
+    /// <summary>
+    /// 只統計本次查驗的權證，避免其他功能或使用者新增紀錄影響全表計數。
+    /// </summary>
+    private async Task<int> CountTrialsAsync(params string[] warrantIds)
     {
         await using var connection = CreateConnection();
         return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
-            "SELECT COUNT(*) FROM dbo.Warrant_Trial_Log;"));
+            "SELECT COUNT(*) FROM dbo.Warrant_Trial_Log WHERE Warrant_ID IN @WarrantIds;",
+            new { WarrantIds = warrantIds.Select(ToVarcharWarrantId).ToArray() }));
     }
 
-    private async Task DeleteTrialsAsync(params string[] warrantIds)
+    /// <summary>
+    /// 產生測試專用的十碼代碼；若碰撞，由新增交易拒絕且不執行清理。
+    /// </summary>
+    private static string NewTestWarrantId() => $"T{Guid.NewGuid():N}"[..10].ToUpperInvariant();
+
+    /// <summary>
+    /// 在同一交易建立本次測試使用的 CALL 權證，全部成功後才交由測試負責清理。
+    /// </summary>
+    private async Task CreateTestWarrantsAsync(params string[] warrantIds)
     {
         await using var connection = CreateConnection();
+        await connection.OpenAsync();
+        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
+        foreach (var warrantId in warrantIds)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                """
+                INSERT INTO dbo.Warrant_Master
+                    (Warrant_ID, Strike_Price, Conversion_Ratio, Warrant_Type, Position_Qty)
+                VALUES (@WarrantId, 100.0000, 0.1000, 'CALL', 1000);
+                """, new { WarrantId = ToVarcharWarrantId(warrantId) }, transaction));
+        }
+
+        await transaction.CommitAsync();
+    }
+
+    /// <summary>
+    /// 只刪除已由本次測試成功建立的權證與其試算，不接觸固定示範代碼或其他資料。
+    /// </summary>
+    private async Task DeleteTestWarrantsAsync(params string[] warrantIds)
+    {
+        await using var connection = CreateConnection();
+        await connection.OpenAsync();
+        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
         await connection.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM dbo.Warrant_Trial_Log WHERE Warrant_ID IN @WarrantIds;",
-            new { WarrantIds = warrantIds.Select(ToVarcharWarrantId).ToArray() }));
+            """
+            DELETE FROM dbo.Warrant_Trial_Log WHERE Warrant_ID IN @WarrantIds;
+            DELETE FROM dbo.Warrant_Master WHERE Warrant_ID IN @WarrantIds;
+            """, new { WarrantIds = warrantIds.Select(ToVarcharWarrantId).ToArray() }, transaction));
+        await transaction.CommitAsync();
     }
 
     /// <summary>

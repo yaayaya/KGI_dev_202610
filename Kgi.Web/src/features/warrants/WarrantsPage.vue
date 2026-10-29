@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ArrowLeft, LoaderCircle, Save } from '@lucide/vue';
 import { useMediaQuery } from '@vueuse/core';
-import { nextTick, ref } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import { Button } from '@/components/ui/button';
+import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import HelpHint from '@/components/HelpHint.vue';
 import { useWarrantWorkspace } from './useWarrantWorkspace';
 import WarrantHistory from './WarrantHistory.vue';
@@ -44,8 +45,26 @@ const showMobileDetail = ref(false);
 const priceInput = ref<HTMLInputElement>();
 const detailHeading = ref<HTMLElement>();
 const warrantList = ref<InstanceType<typeof WarrantList>>();
+const saveConfirmationOpen = ref(false);
+const saveSnapshot = ref<{
+  warrantId: string;
+  marketPrice: string;
+  theoryPrice: string;
+  hedgeQty: string;
+} | null>(null);
 // 庫存是整數，可加千分位；價格與比例則直接顯示 API 的十進位字串。
 const qtyFormatter = new Intl.NumberFormat('zh-TW');
+
+// 確認期間內容若改變，關閉舊確認，避免顯示前一份試算卻儲存目前輸入。
+watch(
+  [() => selectedWarrant.value?.warrantId, marketPrice, preview],
+  () => {
+    if (!saveConfirmationOpen.value) return;
+    saveConfirmationOpen.value = false;
+    saveSnapshot.value = null;
+  },
+  { flush: 'sync' },
+);
 
 /**
  * 選券後開啟明細；桌面聚焦股價欄，手機聚焦標題，避免立即彈出鍵盤遮住資料。
@@ -69,6 +88,41 @@ async function backToList() {
 }
 
 /**
+ * 表單及儲存按鈕共用確認入口，Enter 不會略過確認直接呼叫 API。
+ */
+function requestSave() {
+  if (saveConfirmationOpen.value || !canSave.value || !selectedWarrant.value || !preview.value)
+    return;
+  saveSnapshot.value = {
+    warrantId: selectedWarrant.value.warrantId,
+    marketPrice: marketPrice.value.trim(),
+    theoryPrice: preview.value.theoryPrice,
+    hedgeQty: preview.value.hedgeQty,
+  };
+  saveConfirmationOpen.value = true;
+}
+
+/**
+ * 使用者確認後再比對當前選券、價格及預覽，確保只儲存剛才確認的內容。
+ */
+async function confirmSave() {
+  const snapshot = saveSnapshot.value;
+  saveSnapshot.value = null;
+  if (
+    !snapshot ||
+    !canSave.value ||
+    snapshot.warrantId !== selectedWarrant.value?.warrantId ||
+    snapshot.marketPrice !== marketPrice.value.trim() ||
+    snapshot.theoryPrice !== preview.value?.theoryPrice ||
+    snapshot.hedgeQty !== preview.value?.hedgeQty
+  ) {
+    toast.error('試算內容已變更，請重新確認後儲存。');
+    return;
+  }
+  await save();
+}
+
+/**
  * 僅在存檔成功後提示並準備下一筆輸入；清空表單與刷新歷史由工作區負責。
  */
 async function save() {
@@ -80,7 +134,7 @@ async function save() {
   if (
     code !== selectedWarrant.value?.warrantId ||
     marketPrice.value ||
-    document.activeElement?.closest('[role="dialog"]')
+    document.activeElement?.closest('[role="dialog"], [role="alertdialog"]')
   )
     return;
   if (isDesktop.value) priceInput.value?.focus({ preventScroll: true });
@@ -194,7 +248,7 @@ async function save() {
             aria-labelledby="trial-title"
             :aria-busy="previewLoading || saving"
           >
-            <form @submit.prevent="save">
+            <form @submit.prevent="requestSave">
               <div class="erp-panel-heading">
                 <div class="flex items-center gap-0.5">
                   <h2 id="trial-title">試算</h2>
@@ -333,5 +387,33 @@ async function save() {
         />
       </div>
     </div>
+    <!-- 儲存確認：摘要使用開窗時快照，取消時不送出任何寫入請求。 -->
+    <ConfirmDialog
+      v-model:open="saveConfirmationOpen"
+      title="儲存試算結果"
+      description="請確認權證與股價，確認後將新增一筆試算紀錄。"
+      confirm-text="確認儲存"
+      :disabled="!canSave"
+      @confirm="confirmSave"
+    >
+      <dl v-if="saveSnapshot" class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm tabular-nums">
+        <div>
+          <dt class="text-xs text-muted-foreground">權證代碼</dt>
+          <dd class="mt-1 font-semibold">{{ saveSnapshot.warrantId }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-muted-foreground">標的股價（元）</dt>
+          <dd class="mt-1 font-semibold break-all">{{ saveSnapshot.marketPrice }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-muted-foreground">理論價值（元）</dt>
+          <dd class="mt-1 font-semibold break-all">{{ saveSnapshot.theoryPrice }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-muted-foreground">建議避險張數（張）</dt>
+          <dd class="mt-1 font-semibold break-all">{{ saveSnapshot.hedgeQty }}</dd>
+        </div>
+      </dl>
+    </ConfirmDialog>
   </div>
 </template>

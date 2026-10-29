@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Kgi.Api.Features.Lending;
 
 /// <summary>
-/// 提供借券維持率監控與單日 CSV 行情匯入的 HTTP 入口。
+/// 提供借券維持率監控、單日 CSV 行情匯入與行情重置的 HTTP 入口。
 /// </summary>
 [ApiController]
 [Route("api/lending")]
@@ -38,5 +38,17 @@ public sealed class LendingController(LendingService service) : ControllerBase
         [Required] IFormFile file, CancellationToken cancellationToken)
     {
         return Ok(await service.ImportAsync(file, cancellationToken));
+    }
+
+    /// <summary>
+    /// 清除全部交易日的匯入行情，保留借券合約及權證資料，監控回到尚未匯入狀態。
+    /// </summary>
+    [HttpDelete("market-prices", Name = "ResetMarketPrices")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> ResetMarketPrices(CancellationToken cancellationToken)
+    {
+        await service.ResetMarketPricesAsync(cancellationToken);
+        return NoContent();
     }
 }

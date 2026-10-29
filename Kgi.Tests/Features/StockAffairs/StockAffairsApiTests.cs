@@ -18,34 +18,28 @@ namespace Kgi.Tests.Features.StockAffairs;
 public sealed class StockAffairsApiTests(DatabaseFixture database)
 {
     /// <summary>
-    /// 公司總覽排除零股股東，並使用固定控制總額；名簿不暴露完整身分欄位。
+    /// 僅核對本案例公司的快照部位，排除零股股東且不暴露完整身分欄位。
     /// </summary>
     [DatabaseFact]
-    public async Task SeedSummariesAndMaskedRegisterMatchControlTotals()
+    public async Task OwnedCompanySummaryAndMaskedRegisterMatchItsSnapshot()
     {
+        await using var data = await TestCompany.CreateAsync(database.ConnectionString);
         await using var factory = CreateFactory();
         using var client = factory.CreateClient();
         var companies = Assert.IsType<List<StockCompanyResponse>>(
             await client.GetFromJsonAsync<List<StockCompanyResponse>>("/api/stock-affairs/companies"));
-        var expected = new[]
-        {
-            (Code: "DEMO01", Count: 240, Shares: "235257700", Pledged: "90214835", Ratio: "38.35"),
-            (Code: "DEMO02", Count: 160, Shares: "62018900", Pledged: "22935495", Ratio: "36.98"),
-            (Code: "DEMO03", Count: 100, Shares: "11322", Pledged: "1366", Ratio: "12.07")
-        };
-        foreach (var item in expected)
-        {
-            var company = Assert.Single(companies, row => row.CompanyCode == item.Code);
-            Assert.Equal(item.Count, company.ShareholderCount);
-            Assert.Equal(item.Shares, company.TotalShares);
-            Assert.Equal(item.Pledged, company.PledgedShares);
-            Assert.Equal(item.Ratio, company.PledgedRatio);
-        }
+        var company = Assert.Single(companies, row => row.CompanyCode == data.Company);
+        Assert.Equal(100, company.ShareholderCount);
+        Assert.Equal("11322", company.TotalShares);
+        Assert.Equal("1366", company.PledgedShares);
+        Assert.Equal("12.07", company.PledgedRatio);
 
-        using var response = await client.GetAsync("/api/stock-affairs/DEMO03/register");
+        using var response = await client.GetAsync(data.Path("register"));
         var register = await ReadAsync<StockRegisterResponse>(response);
+        Assert.Equal(data.Company, register.CompanyCode);
         Assert.Equal(102, register.Shareholders.Count);
-        Assert.Equal(300, register.Candidates.Count);
+        Assert.All(Enumerable.Range(1, 103).Select(number => $"SH{number:0000}"),
+            id => Assert.Contains(register.Candidates, row => row.ShareholderId == id));
         Assert.Equal(2, register.Shareholders.Count(row => row.ShareQty == 0));
         Assert.All(register.Shareholders, row => Assert.Contains('*', row.MaskedIdNo));
         Assert.DoesNotContain("TEST-ID-0001", await response.Content.ReadAsStringAsync());
@@ -348,7 +342,7 @@ public sealed class StockAffairsApiTests(DatabaseFixture database)
     }
 
     /// <summary>
-    /// 建立使用 fixture 正式 ConnectionStrings:Kgi 且明確允許重建 KGI 的 API 主機。
+    /// 使用 fixture 的共用 KGI 並停用全站結算，不重建資料庫。
     /// </summary>
     private WebApplicationFactory<Program> CreateFactory() => new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
     {
@@ -392,7 +386,7 @@ public sealed class StockAffairsApiTests(DatabaseFixture database)
         Assert.IsType<StockRegisterResponse>(await client.GetFromJsonAsync<StockRegisterResponse>(data.Path("register")));
 
     /// <summary>
-    /// 為每個案例複製丙公司與兩期快照，清理時只刪除此案例擁有的公司。
+    /// 為每個案例複製不可變快照，清理時只刪除此案例擁有的公司。
     /// </summary>
     private sealed class TestCompany(string connectionString) : IAsyncDisposable
     {
@@ -415,7 +409,7 @@ public sealed class StockAffairsApiTests(DatabaseFixture database)
         private object Parameters => new { Company, OldSnapshot, NewSnapshot, OldMeeting, MissingMeeting, Cash, OldCash, Stock, BadCash, Fraction, OverflowBatch };
 
         /// <summary>
-        /// 在單一交易內建立獨立測試資料，名簿與快照源自固定丙公司。
+        /// 從不可變快照建立自己的名簿及兩期資料，不依賴目前示範公司的可變持股。
         /// </summary>
         public static async Task<TestCompany> CreateAsync(string connectionString, bool includeData = true)
         {
@@ -429,7 +423,10 @@ public sealed class StockAffairsApiTests(DatabaseFixture database)
             {
                 await connection.ExecuteAsync(new CommandDefinition("""
                     INSERT dbo.Shareholding_Register (Company_Code,Shareholder_ID,Share_Qty,Pledge_Qty,Last_Update_Time)
-                    SELECT @Company,Shareholder_ID,Share_Qty,Pledge_Qty,Last_Update_Time FROM dbo.Shareholding_Register WHERE Company_Code='DEMO03';
+                    SELECT @Company,Shareholder_ID,Share_Qty,Pledge_Qty,'20261028'
+                    FROM dbo.Shareholding_Snapshot_Detail WHERE Snapshot_ID='S-C-20261028';
+                    INSERT dbo.Shareholding_Register (Company_Code,Shareholder_ID,Share_Qty,Pledge_Qty,Last_Update_Time)
+                    VALUES (@Company,'SH0101',0,0,'20261028'),(@Company,'SH0102',0,0,'20261028');
                     INSERT dbo.Shareholding_Snapshot (Snapshot_ID,Company_Code,Record_Date,Created_Time)
                     VALUES (@OldSnapshot,@Company,'20260930','20260930'),(@NewSnapshot,@Company,'20261028','20261028');
                     INSERT dbo.Shareholding_Snapshot_Detail (Snapshot_ID,Shareholder_ID,Shareholder_Name,Address,Share_Qty,Pledge_Qty)
