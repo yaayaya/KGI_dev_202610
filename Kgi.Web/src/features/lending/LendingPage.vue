@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { ChevronUp, LoaderCircle, RefreshCw, Upload } from '@lucide/vue';
+import { ChevronUp, LoaderCircle, RefreshCw, RotateCcw, Upload } from '@lucide/vue';
+import {
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogOverlay,
+  AlertDialogPortal,
+  AlertDialogRoot,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from 'reka-ui';
 import { toast } from 'vue-sonner';
 import { Button } from '@/components/ui/button';
 import HelpHint from '@/components/HelpHint.vue';
@@ -16,6 +27,8 @@ const {
   loading,
   loadError,
   abnormalOnly,
+  resetting,
+  resetError,
   selectedFile,
   fileError,
   importing,
@@ -25,6 +38,7 @@ const {
   reloadMonitor,
   selectFiles,
   importFile,
+  resetMarketPrices,
 } = useLendingMonitor();
 const uploadExpanded = ref(false);
 
@@ -36,6 +50,20 @@ async function submitImport() {
   if (result) {
     uploadExpanded.value = false;
     toast.success(`已匯入 ${result.importedCount} 筆行情`);
+  }
+}
+
+/**
+ * 確認後才清除行情；成功後收合匯入區，刷新失敗時保留獨立提示。
+ */
+async function submitReset() {
+  if (await resetMarketPrices()) {
+    uploadExpanded.value = false;
+    if (loadError.value) {
+      toast.warning('行情已重置，但監控資料刷新失敗，請重試。');
+    } else {
+      toast.success('行情已重置，行情日已回到尚未匯入。');
+    }
   }
 }
 </script>
@@ -59,17 +87,52 @@ async function submitImport() {
           type="button"
           variant="outline"
           size="sm"
-          :disabled="loading || importing"
+          :disabled="loading || importing || resetting"
           @click="reloadMonitor()"
         >
           <RefreshCw class="size-3.5" :class="{ 'animate-spin': loading }" aria-hidden="true" />
           重新整理
         </Button>
+        <AlertDialogRoot>
+          <AlertDialogTrigger as-child>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              :disabled="loading || importing || resetting || !monitor?.tradeDate"
+            >
+              <LoaderCircle v-if="resetting" class="size-3.5 animate-spin" aria-hidden="true" />
+              <RotateCcw v-else class="size-3.5" aria-hidden="true" />
+              {{ resetting ? '重置中…' : '重置行情' }}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogPortal>
+            <AlertDialogOverlay class="fixed inset-0 z-40 bg-foreground/30" />
+            <AlertDialogContent
+              class="fixed top-1/2 left-1/2 z-50 w-[min(400px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-card p-4 text-card-foreground shadow-lg"
+            >
+              <AlertDialogTitle class="text-sm font-semibold">確定重置行情？</AlertDialogTitle>
+              <AlertDialogDescription class="mt-2 text-xs leading-relaxed text-muted-foreground">
+                將清除所有日期已匯入的行情，行情日回到「尚未匯入」，全部合約恢復待補價。借券合約與權證資料會保留；行情需重新匯入 CSV 才能恢復。
+              </AlertDialogDescription>
+              <div class="mt-4 flex justify-end gap-2">
+                <AlertDialogCancel as-child>
+                  <Button type="button" variant="outline" size="sm">取消</Button>
+                </AlertDialogCancel>
+                <AlertDialogAction as-child>
+                  <Button type="button" variant="destructive" size="sm" @click="submitReset">
+                    確定重置
+                  </Button>
+                </AlertDialogAction>
+              </div>
+            </AlertDialogContent>
+          </AlertDialogPortal>
+        </AlertDialogRoot>
         <Button
           type="button"
           :variant="uploadExpanded ? 'secondary' : 'outline'"
           size="sm"
-          :disabled="importing"
+          :disabled="importing || resetting"
           :aria-expanded="uploadExpanded"
           aria-controls="lending-upload-panel"
           @click="uploadExpanded = !uploadExpanded"
@@ -133,14 +196,23 @@ async function submitImport() {
         :file-error="fileError"
         :import-error="importError"
         :notice="importNotice"
-        :importing="importing"
+        :importing="importing || resetting"
         :can-import="canImport"
         @select="selectFiles"
         @import="submitImport"
       />
     </div>
 
-    <!-- 刷新失敗保留舊快照；匯入已成功時仍能清楚看見此提示。 -->
+    <!-- 重置失敗不清空畫面，避免把未確認的結果顯示成尚未匯入。 -->
+    <p
+      v-if="resetError"
+      class="shrink-0 rounded-md border border-destructive/30 bg-danger-muted px-3 py-2 text-xs text-destructive"
+      role="alert"
+    >
+      {{ resetError }}
+    </p>
+
+    <!-- 刷新失敗保留舊快照；匯入或重置已成功時仍能清楚看見此提示。 -->
     <div
       v-if="loadError"
       class="flex shrink-0 flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-danger-muted px-3 py-2 text-xs"
@@ -154,7 +226,7 @@ async function submitImport() {
         type="button"
         variant="outline"
         size="xs"
-        :disabled="loading || importing"
+        :disabled="loading || importing || resetting"
         @click="reloadMonitor()"
         >重試</Button
       >
@@ -163,7 +235,7 @@ async function submitImport() {
       v-model:abnormal-only="abnormalOnly"
       class="lending-contracts"
       :contracts="monitor?.contracts ?? []"
-      :loading="loading"
+      :loading="loading || resetting"
       :failed="!!loadError"
     />
   </div>

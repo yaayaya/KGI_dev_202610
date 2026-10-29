@@ -73,4 +73,15 @@ public sealed class LendingDao(SqlConnectionFactory connections)
         await transaction.CommitAsync(cancellationToken);
         return [];
     }
+
+    /// <summary>
+    /// 以單一刪除命令清空所有交易日的行情，不更動借券合約或 Q1 資料。
+    /// </summary>
+    public async Task ResetMarketPricesAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = connections.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await connection.ExecuteAsync(new CommandDefinition(
+            LendingSql.ResetMarketPrices, cancellationToken: cancellationToken));
+    }
 }

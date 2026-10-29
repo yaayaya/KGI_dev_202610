@@ -3,7 +3,7 @@ using System.Globalization;
 namespace Kgi.Api.Features.Lending;
 
 /// <summary>
-/// 協調行情格式驗證、整批匯入與監控回應，維持率依題目要求由 SQL 一次 JOIN 計算。
+/// 協調行情格式驗證、整批匯入、重置與監控回應，維持率依題目要求由 SQL 一次 JOIN 計算。
 /// </summary>
 public sealed class LendingService(LendingDao dao, MarketPriceCsvParser parser)
 {
@@ -83,6 +83,12 @@ public sealed class LendingService(LendingDao dao, MarketPriceCsvParser parser)
             ImportedCount = market.Prices.Count
         };
     }
+
+    /// <summary>
+    /// 重置全部匯入行情，讓監控重新呈現尚未匯入與待補價狀態。
+    /// </summary>
+    public Task ResetMarketPricesAsync(CancellationToken cancellationToken = default) =>
+        dao.ResetMarketPricesAsync(cancellationToken);
 
     /// <summary>
     /// 顯示值採固定小數位及遠離零的中點捨入，狀態仍使用 SQL 原始門檻結果。

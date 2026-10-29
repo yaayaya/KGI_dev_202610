@@ -11,7 +11,7 @@ namespace Kgi.Tests.Features.Lending;
 public sealed class LendingOpenApiTests
 {
     /// <summary>
-    /// 驗證 Q2 必填欄位、整數、可空金融字串、狀態 enum 與 multipart 檔案契約。
+    /// 驗證 Q2 必填欄位、整數、可空金融字串、狀態 enum、multipart 檔案及重置契約。
     /// </summary>
     [Fact]
     public async Task LiveOpenApiPreservesExactTypesAndRequiredMultipartFile()
@@ -75,6 +75,13 @@ public sealed class LendingOpenApiTests
         var file = ResolveReference(root, form.GetProperty("properties").GetProperty("file"));
         Assert.Equal("string", file.GetProperty("type").GetString());
         Assert.Equal("binary", file.GetProperty("format").GetString());
+
+        var reset = root.GetProperty("paths").GetProperty("/api/lending/market-prices").GetProperty("delete");
+        Assert.Equal("ResetMarketPrices", reset.GetProperty("operationId").GetString());
+        Assert.False(reset.TryGetProperty("requestBody", out _));
+        var noContent = reset.GetProperty("responses").GetProperty("204");
+        Assert.False(noContent.TryGetProperty("content", out _));
+        Assert.True(reset.GetProperty("responses").TryGetProperty("500", out _));
     }
 
     /// <summary>

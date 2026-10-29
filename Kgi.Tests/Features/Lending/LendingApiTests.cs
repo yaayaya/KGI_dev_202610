@@ -29,6 +29,73 @@ public sealed class LendingApiTests(DatabaseFixture database)
     ];
 
     /// <summary>
+    /// 重置須清除全部交易日，保留借券合約及 Q1 資料，重複操作仍可成功。
+    /// </summary>
+    [DatabaseFact]
+    public async Task ResetClearsAllMarketDatesAndPreservesContractsAndWarrantData()
+    {
+        var date = new DateTime(2026, 5, 1);
+        var otherDate = new DateTime(2026, 5, 2);
+        int? logId = null;
+        try
+        {
+            await using var factory = CreateFactory();
+            using var client = factory.CreateClient();
+            var contractsBefore = (await GetMonitorAsync(client, date)).Contracts;
+            var warrantsBefore = await client.GetFromJsonAsync<List<WarrantResponse>>("/api/warrants");
+            using var saved = await client.PostAsJsonAsync("/api/warrants/03001C/trials", new TrialRequest { MarketPrice = 110m });
+            saved.EnsureSuccessStatusCode();
+            var trial = Assert.IsType<TrialResponse>(await saved.Content.ReadFromJsonAsync<TrialResponse>());
+            logId = trial.LogId;
+
+            using var firstImport = await ImportAsync(client, CreateCsv(date));
+            firstImport.EnsureSuccessStatusCode();
+            using var secondImport = await ImportAsync(client, CreateCsv(otherDate, 200m));
+            secondImport.EnsureSuccessStatusCode();
+            Assert.Equal(20, (await GetPricesAsync(date)).Count);
+            Assert.Equal(20, (await GetPricesAsync(otherDate)).Count);
+
+            using var reset = await client.DeleteAsync("/api/lending/market-prices");
+            Assert.Equal(HttpStatusCode.NoContent, reset.StatusCode);
+            var monitor = Assert.IsType<LendingMonitorResponse>(
+                await client.GetFromJsonAsync<LendingMonitorResponse>("/api/lending/monitor"));
+            Assert.Null(monitor.TradeDate);
+            Assert.Equal(1000, monitor.TotalCount);
+            Assert.Equal(monitor.TotalCount, monitor.UnpricedCount);
+            Assert.Equal(0, monitor.NormalCount + monitor.WarningCount + monitor.CallCount);
+            Assert.All(monitor.Contracts, contract =>
+            {
+                Assert.Equal("Unpriced", contract.Status);
+                Assert.Null(contract.ClosingPrice);
+                Assert.Null(contract.MaintenanceRatio);
+            });
+            Assert.Equal(
+                contractsBefore.OrderBy(contract => contract.ContractNo),
+                monitor.Contracts.OrderBy(contract => contract.ContractNo));
+            Assert.Equal(warrantsBefore, await client.GetFromJsonAsync<List<WarrantResponse>>("/api/warrants"));
+            var trials = Assert.IsType<List<TrialResponse>>(
+                await client.GetFromJsonAsync<List<TrialResponse>>("/api/warrants/03001C/trials"));
+            Assert.Contains(trial, trials);
+
+            using var repeatedReset = await client.DeleteAsync("/api/lending/market-prices");
+            Assert.Equal(HttpStatusCode.NoContent, repeatedReset.StatusCode);
+            await using var connection = CreateConnection();
+            Assert.Equal(0, await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+                "SELECT COUNT(*) FROM dbo.Market_Price;")));
+        }
+        finally
+        {
+            await DeletePricesAsync(date, otherDate);
+            if (logId.HasValue)
+            {
+                await using var connection = CreateConnection();
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "DELETE FROM dbo.Warrant_Trial_Log WHERE Log_ID = @LogId;", new { LogId = logId.Value }));
+            }
+        }
+    }
+
+    /// <summary>
     /// 指定交易日尚無行情時，合約必須標示未計算，不得混入正常件數。
     /// </summary>
     [DatabaseFact]

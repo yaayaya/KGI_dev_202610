@@ -109,9 +109,17 @@ export const importMarketPrices = (
   );
 };
 
+/**
+ * @summary 清除全部交易日的匯入行情，保留借券合約及權證資料，監控回到尚未匯入狀態。
+ */
+export const resetMarketPrices = (options?: SecondParameter<typeof request<void>>) => {
+  return request<void>({ url: `/api/lending/market-prices`, method: 'DELETE' }, options);
+};
+
 export type GetWarrantsResult = NonNullable<Awaited<ReturnType<typeof getWarrants>>>;
 export type PreviewWarrantResult = NonNullable<Awaited<ReturnType<typeof previewWarrant>>>;
 export type SaveWarrantTrialResult = NonNullable<Awaited<ReturnType<typeof saveWarrantTrial>>>;
 export type GetWarrantTrialsResult = NonNullable<Awaited<ReturnType<typeof getWarrantTrials>>>;
 export type GetLendingMonitorResult = NonNullable<Awaited<ReturnType<typeof getLendingMonitor>>>;
 export type ImportMarketPricesResult = NonNullable<Awaited<ReturnType<typeof importMarketPrices>>>;
+export type ResetMarketPricesResult = NonNullable<Awaited<ReturnType<typeof resetMarketPrices>>>;

@@ -4,7 +4,7 @@ import type { LendingMonitorResponse } from '@/api/generated/kgiApi.schemas';
 import { getLendingErrorMessage, lendingApi } from './lendingApi';
 
 /**
- * 管理 Q2 行情匯入及監控快照；讀取與寫入錯誤分開，金融計算全部由後端處理。
+ * 管理 Q2 行情匯入、重置及監控快照；讀取與寫入錯誤分開，金融計算全部由後端處理。
  */
 export function useLendingMonitor() {
   // 監控讀取：重整失敗保留前次資料，並透過錯誤提示標示資料尚未更新。
@@ -12,6 +12,8 @@ export function useLendingMonitor() {
   const loading = ref(false);
   const loadError = ref('');
   const abnormalOnly = ref(false);
+  const resetting = ref(false);
+  const resetError = ref('');
 
   // 選檔不變更既有行情；寫入成功前保留檔案，方便修正錯誤或再次檢視。
   const selectedFile = shallowRef<File | null>(null);
@@ -19,7 +21,9 @@ export function useLendingMonitor() {
   const importing = ref(false);
   const importError = ref('');
   const importNotice = ref('');
-  const canImport = computed(() => !!selectedFile.value && !importing.value && !fileError.value);
+  const canImport = computed(
+    () => !!selectedFile.value && !importing.value && !resetting.value && !fileError.value,
+  );
 
   let active = true;
   let loadVersion = 0;
@@ -40,6 +44,7 @@ export function useLendingMonitor() {
       const result = await lendingApi.getMonitor(tradeDate, controller.signal);
       if (!active || version !== loadVersion) return false;
       monitor.value = result;
+      resetError.value = '';
       return true;
     } catch (error) {
       if (active && version === loadVersion && !axios.isCancel(error)) {
@@ -58,7 +63,7 @@ export function useLendingMonitor() {
    * 只檢查瀏覽器可確定的檔案條件；完整內容、缺價與日期規則由後端驗證。
    */
   function selectFiles(files: File[]) {
-    if (importing.value || !active) return;
+    if (importing.value || resetting.value || !active) return;
     selectedFile.value = null;
     fileError.value = '';
     importError.value = '';
@@ -88,6 +93,7 @@ export function useLendingMonitor() {
     importing.value = true;
     importError.value = '';
     importNotice.value = '';
+    resetError.value = '';
     loadVersion += 1;
     loadController?.abort();
     loading.value = false;
@@ -116,6 +122,43 @@ export function useLendingMonitor() {
     }
   }
 
+  /**
+   * 清除全部已匯入行情後重新讀取；寫入成功與刷新失敗分開處理，不自動重送。
+   */
+  async function resetMarketPrices(): Promise<boolean> {
+    if (!active || loading.value || importing.value || resetting.value) return false;
+    resetting.value = true;
+    resetError.value = '';
+    loadVersion += 1;
+    loadController?.abort();
+
+    try {
+      await lendingApi.resetMarketPrices();
+      if (!active) return false;
+      selectedFile.value = null;
+      fileError.value = '';
+      importError.value = '';
+      importNotice.value = '';
+      abnormalOnly.value = false;
+      const refreshed = await reloadMonitor();
+      if (!active) return false;
+      if (!refreshed) {
+        loadError.value = `行情已重置，但監控資料刷新失敗，請重試。\n${loadError.value}`;
+      }
+      return true;
+    } catch (error) {
+      if (active) {
+        resetError.value = getLendingErrorMessage(
+          error,
+          '無法確認行情是否已重置，請先重新整理監控資料。',
+        );
+      }
+      return false;
+    } finally {
+      if (active) resetting.value = false;
+    }
+  }
+
   onMounted(() => void reloadMonitor());
   onScopeDispose(() => {
     active = false;
@@ -128,6 +171,8 @@ export function useLendingMonitor() {
     loading,
     loadError,
     abnormalOnly,
+    resetting,
+    resetError,
     selectedFile,
     fileError,
     importing,
@@ -137,5 +182,6 @@ export function useLendingMonitor() {
     reloadMonitor,
     selectFiles,
     importFile,
+    resetMarketPrices,
   };
 }
