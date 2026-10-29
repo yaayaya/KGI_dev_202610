@@ -85,7 +85,7 @@ function requestSettlement(batchId: string) {
 async function submitSettlement() {
   const confirmation = settlementConfirmation.value;
   if (!confirmation || !canConfirmSettlement.value) return;
-  settlementConfirmation.value = null;
+  // 離場動畫結束前保留原摘要，下次開窗才以新批次取代。
   const result = await startSettlement(confirmation.batchId);
   if (result) toast.success(`已受理 ${result.batchId} 結算，請查看進度。`);
 }
@@ -168,7 +168,11 @@ async function submitSettlement() {
           <dd class="font-medium tabular-nums">{{ settlementConfirmation.expectedAmt }}</dd>
         </div>
       </dl>
-      <p v-if="!canConfirmSettlement" class="mt-2 text-xs text-warning" role="alert">
+      <p
+        v-if="settlementDialogOpen && !canConfirmSettlement"
+        class="mt-2 text-xs text-warning"
+        role="alert"
+      >
         批次資料或狀態已更新，請取消後重新選擇待處理批次。
       </p>
     </ConfirmDialog>

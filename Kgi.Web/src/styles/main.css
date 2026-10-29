@@ -179,6 +179,25 @@ body {
 
 /* ERP 共用元件樣式：輸入框、面板標題與表格密度；業務版面仍在各 Vue 元件中。 */
 @layer components {
+  /* 與 shadcn 範本共用狀態動畫；Reka 會等待離場完成後再移除浮層。 */
+  .erp-dialog-overlay {
+    @apply duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0;
+  }
+
+  .erp-dialog-content {
+    @apply duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95;
+  }
+
+  /* 以元件量測的實際高度收合，子元件留在 DOM，保留選檔及預覽狀態。 */
+  .erp-collapsible-content {
+    @apply overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up;
+  }
+
+  /* 保留實例但隱藏完成收合的元素，避免在 flex 工作區留下額外間距。 */
+  .erp-collapsible-content[hidden] {
+    display: none;
+  }
+
   .erp-input {
     @apply h-8 w-full min-w-0 rounded-md border border-input/60 bg-card px-2.5 text-[13px] text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/15 focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground;
   }
@@ -209,6 +228,15 @@ body {
 
   .erp-table tbody tr:hover {
     @apply bg-muted/40;
+  }
+}
+
+/* 尊重系統的減少動態效果偏好，不影響確認、鍵盤操作或展開狀態。 */
+@media (prefers-reduced-motion: reduce) {
+  .erp-dialog-overlay,
+  .erp-dialog-content,
+  .erp-collapsible-content {
+    animation: none !important;
   }
 }
 

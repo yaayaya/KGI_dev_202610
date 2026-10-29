@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue';
 import { ChevronUp, LoaderCircle, RefreshCw, RotateCcw, Upload } from '@lucide/vue';
+import { CollapsibleContent, CollapsibleRoot, CollapsibleTrigger } from 'reka-ui';
 import { toast } from 'vue-sonner';
 import { Button } from '@/components/ui/button';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
@@ -36,6 +37,7 @@ const uploadExpanded = ref(false);
 const importDialogOpen = ref(false);
 const importSnapshot = shallowRef<File | null>(null);
 const resetDialogOpen = ref(false);
+const resetTradeDate = ref<string | null>(null);
 const canConfirmImport = computed(
   () =>
     !!importSnapshot.value &&
@@ -55,7 +57,7 @@ watch(
   () => {
     importDialogOpen.value = false;
     resetDialogOpen.value = false;
-    importSnapshot.value = null;
+    // 保留離場中的摘要，下次開窗再取代，避免送出後彈窗內容突然縮空。
   },
   { flush: 'sync' },
 );
@@ -64,7 +66,13 @@ watch(
  * 鎖定這次選取的 File，先讓使用者確認上傳及同日替換的影響。
  */
 function requestImport() {
-  if (!selectedFile.value || !canImport.value || loading.value || importing.value || resetting.value) {
+  if (
+    !selectedFile.value ||
+    !canImport.value ||
+    loading.value ||
+    importing.value ||
+    resetting.value
+  ) {
     return;
   }
   importSnapshot.value = selectedFile.value;
@@ -79,7 +87,6 @@ async function submitImport() {
   // 共用對話框先關閉再通知；確認有效性依快照判斷，不依對話框是否仍開啟。
   if (!canConfirmImport.value) return;
   const result = await importFile();
-  importSnapshot.value = null;
   if (result) {
     uploadExpanded.value = false;
     toast.success(`已匯入 ${result.importedCount} 筆行情`);
@@ -92,7 +99,7 @@ async function submitImport() {
 function requestReset() {
   if (!canReset.value) return;
   importDialogOpen.value = false;
-  importSnapshot.value = null;
+  resetTradeDate.value = monitor.value?.tradeDate ?? null;
   resetDialogOpen.value = true;
 }
 
@@ -113,7 +120,11 @@ async function submitReset() {
 </script>
 
 <template>
-  <div
+  <CollapsibleRoot
+    v-model:open="uploadExpanded"
+    :unmount-on-hide="false"
+    :disabled="importing || resetting"
+    as="div"
     class="lending-workspace mx-auto flex h-full min-h-0 min-w-0 max-w-[1600px] flex-col gap-2.5 overflow-hidden p-3 md:p-4"
   >
     <!-- 標題只保留行情日期與必要操作，匯入預設收合，讓表格取得更多垂直空間。 -->
@@ -148,20 +159,19 @@ async function submitReset() {
           <RotateCcw v-else class="size-3.5" aria-hidden="true" />
           {{ resetting ? '重置中…' : '重置行情' }}
         </Button>
-        <Button
-          type="button"
-          :variant="uploadExpanded ? 'secondary' : 'outline'"
-          size="sm"
-          :disabled="importing || resetting"
-          :aria-expanded="uploadExpanded"
-          aria-controls="lending-upload-panel"
-          @click="uploadExpanded = !uploadExpanded"
-        >
-          <LoaderCircle v-if="importing" class="size-3.5 animate-spin" aria-hidden="true" />
-          <ChevronUp v-else-if="uploadExpanded" class="size-3.5" aria-hidden="true" />
-          <Upload v-else class="size-3.5" aria-hidden="true" />
-          {{ importing ? '匯入中…' : uploadExpanded ? '收合匯入' : '匯入行情' }}
-        </Button>
+        <CollapsibleTrigger as-child>
+          <Button
+            type="button"
+            :variant="uploadExpanded ? 'secondary' : 'outline'"
+            size="sm"
+            :disabled="importing || resetting"
+          >
+            <LoaderCircle v-if="importing" class="size-3.5 animate-spin" aria-hidden="true" />
+            <ChevronUp v-else-if="uploadExpanded" class="size-3.5" aria-hidden="true" />
+            <Upload v-else class="size-3.5" aria-hidden="true" />
+            {{ importing ? '匯入中…' : uploadExpanded ? '收合匯入' : '匯入行情' }}
+          </Button>
+        </CollapsibleTrigger>
       </div>
     </div>
 
@@ -209,8 +219,8 @@ async function submitReset() {
       </p>
     </section>
 
-    <!-- 收合只隱藏匯入區，不卸載選檔與預覽狀態，展開後可接續操作。 -->
-    <div v-show="uploadExpanded" id="lending-upload-panel" class="shrink-0">
+    <!-- 以內容實際高度收合，子元件持續掛載，選檔與預覽狀態可接續操作。 -->
+    <CollapsibleContent class="erp-collapsible-content shrink-0">
       <MarketPriceUpload
         :file="selectedFile"
         :file-error="fileError"
@@ -221,7 +231,7 @@ async function submitReset() {
         @select="selectFiles"
         @import="requestImport"
       />
-    </div>
+    </CollapsibleContent>
 
     <!-- 重置失敗不清空畫面，避免把未確認的結果顯示成尚未匯入。 -->
     <p
@@ -280,10 +290,10 @@ async function submitReset() {
       destructive
       @confirm="submitReset"
     >
-      <p>目前畫面行情日：{{ monitor?.tradeDate }}</p>
+      <p>目前畫面行情日：{{ resetTradeDate }}</p>
       <p class="mt-1">清除範圍包含全部日期，無法透過此畫面復原。</p>
     </ConfirmDialog>
-  </div>
+  </CollapsibleRoot>
 </template>
 
 <style scoped>
